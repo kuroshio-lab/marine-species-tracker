@@ -115,7 +115,7 @@ DB_PORT=5432
 DJANGO_SECRET_KEY=$DJANGO_SECRET
 DEBUG=False
 ENV=${environment}
-ALLOWED_HOSTS=${api_domain},localhost,backend
+ALLOWED_HOSTS=${api_domain},localhost,backend,species-backend
 CORS_ALLOWED_ORIGINS=https://${frontend_domain}
 CSRF_TRUSTED_ORIGINS=https://${frontend_domain}
 
