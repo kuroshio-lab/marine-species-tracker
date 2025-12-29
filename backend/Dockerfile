@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV GDAL_LIBRARY_PATH=/lib/aarch64-linux-gnu/libgdal.so
+ENV GDAL_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/libgdal.so
 
 RUN apt-get update && apt-get install -y \
     postgresql-client \

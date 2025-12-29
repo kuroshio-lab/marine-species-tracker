@@ -1,0 +1,39 @@
+# infra/.gitignore
+
+# Terraform files
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/*.tfstate.*.backup
+terraform/.terraform.tfstate.lock.info
+
+# Variable files with secrets
+terraform/personal.tfvars
+terraform/*.auto.tfvars
+terraform/terraform.tfvars
+
+# Crash logs
+terraform/crash.log
+terraform/crash.*.log
+
+# Override files
+terraform/override.tf
+terraform/override.tf.json
+terraform/*_override.tf
+terraform/*_override.tf.json
+
+# CLI config
+.terraformrc
+terraform.rc
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
