@@ -27,10 +27,11 @@ ENV NODE_ENV=production
 # Copy the built application from the builder stage
 # Only copy what's absolutely necessary for running the app
 COPY --from=builder /app/.next ./.next/
+COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/public ./public/
 
 # Expose the port Next.js listens on
 EXPOSE 3000
 
 # Command to start the Next.js application in production mode
-CMD ["npm", "run", "start"]
+CMD ["node", "server.js"]
