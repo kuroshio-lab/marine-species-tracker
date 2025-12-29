@@ -24,7 +24,10 @@ export async function middleware(request: NextRequest) {
 
   const res = await fetch(`${API_URL}/api/v1/auth/profiles/me/`, {
     credentials: "include",
-    headers: { Cookie: cookieHeader },
+    headers: {
+      Cookie: cookieHeader,
+      "X-Forwarded-Proto": "https",
+    },
   });
 
   if (res.status !== 200) {
