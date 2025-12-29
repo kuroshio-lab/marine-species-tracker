@@ -11,10 +11,6 @@ on:
       - '.github/workflows/deploy.yml'
       - '.github/workflows/pull-request.yml'
 
-env:
-  # Define any common environment variables needed for tests/builds
-  # No AWS_REGION or ECS_CLUSTER needed for this workflow
-
 jobs:
   test-backend:
     name: Test Backend
@@ -43,21 +39,21 @@ jobs:
       - name: Build and run backend services
         working-directory: ./backend
         run: |
-          docker-compose build backend # Build the backend image
-          docker-compose up -d backend
+          docker compose build backend
+          docker compose up -d backend
 
       - name: Wait for backend to be healthy
         working-directory: ./backend
-        run: docker-compose wait backend
+        run: docker compose wait backend
 
       - name: Run backend tests with Pytest
         working-directory: ./backend
-        run: docker-compose exec backend pytest
+        run: docker compose exec backend pytest
 
       - name: Stop and remove containers
         if: always()
         working-directory: ./backend
-        run: docker-compose down
+        run: docker compose down
 
   test-frontend:
     name: Test Frontend
