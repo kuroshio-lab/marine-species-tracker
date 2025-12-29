@@ -29,11 +29,6 @@ ENV NODE_ENV=production
 COPY --from=builder /app/.next ./.next/
 COPY --from=builder /app/public ./public/
 
-# If you have an .env.production file that's part of your build context, copy it
-# Ensure this file is NOT sensitive and is for build-time env vars.
-# If your ENV vars are purely runtime (from Docker Compose/EC2 user-data), you don't need this.
-COPY --from=builder /app/.env.production ./
-
 # Expose the port Next.js listens on
 EXPOSE 3000
 
