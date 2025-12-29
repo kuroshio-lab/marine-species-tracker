@@ -40,6 +40,11 @@ variable "ssh_allowed_ips" {
   default     = ["0.0.0.0/0"] # IMPORTANT: Restrict this in production!
 }
 
+variable "ssh_allowed_ipv6" {
+  description = "IPv6 addresses allowed to SSH (CIDR notation)"
+  type        = list(string)
+  default     = []
+}
 variable "resend_api_key" {
   description = "Resend API key for email"
   type        = string

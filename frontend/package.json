@@ -10,7 +10,8 @@
     "lint:fix": "next lint --fix",
     "format": "prettier --write .",
     "check-format": "prettier --check .",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "echo \"No tests configured yet. Add testing framework (e.g., Jest) to run tests.\""
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

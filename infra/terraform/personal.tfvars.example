@@ -18,8 +18,10 @@ ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC..." # Your SSH public 
 # SSH allowed IPs (IMPORTANT: Restrict to your IP in production!)
 ssh_allowed_ips = [
   "0.0.0.0/0"  # Allow from anywhere (NOT RECOMMENDED for production)
-  # "YOUR_IP/32"  # Uncomment and replace with your actual IP
+  # "YOUR_IP/32"  # Uncomment and replace with your actual IP (don't forget /32 at the end)
 ]
-
+ssh_allowed_ipv6 = [
+  "1232.23.232/128" #Don't forget the /128 at the end
+]
 # Secrets (REQUIRED)
 resend_api_key = "re_...."

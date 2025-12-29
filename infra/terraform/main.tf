@@ -94,12 +94,22 @@ resource "aws_security_group" "ec2" {
   vpc_id      = aws_vpc.main.id
 
   # SSH access (restrict to your IP in production)
+  # SSH access (IPv4)
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = var.ssh_allowed_ips
-    description = "SSH access"
+    description = "SSH access (IPv4)"
+  }
+
+  # SSH access (IPv6) - ADD THIS
+  ingress {
+    from_port        = 22
+    to_port          = 22
+    protocol         = "tcp"
+    ipv6_cidr_blocks = var.ssh_allowed_ipv6
+    description      = "SSH access (IPv6)"
   }
 
   # HTTP
@@ -264,6 +274,11 @@ resource "aws_iam_role" "ec2" {
   tags = {
     Name = "species-tracker-ec2-role"
   }
+}
+
+resource "aws_iam_role_policy_attachment" "ssm_managed" {
+  role       = aws_iam_role.ec2.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 resource "aws_iam_role_policy" "ec2_route53" {

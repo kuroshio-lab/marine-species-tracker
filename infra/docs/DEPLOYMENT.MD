@@ -104,26 +104,42 @@ exit
 ## Step 5: Setup SSL Certificates (First Time Only)
 
 ```bash
+
+To get SSL certificates, Nginx must be running on port 80. However, the production Nginx config requires SSL certificates to start. We use a temporary "bootstrap" container to solve this "chicken and egg" problem:
+
 # SSH into EC2
 ssh -i ~/.ssh/species-tracker ubuntu@$EC2_IP
 
-# Setup Let's Encrypt SSL
+# 1. Start temporary bootstrap Nginx on port 80
+sudo docker run --rm -d \
+  --name nginx-bootstrap \
+  -v species-tracker_certbot-www:/var/www/certbot \
+  -p 80:80 \
+  nginx:alpine \
+  sh -c "echo 'events {} http { server { listen 80; server_name species.kuroshio-lab.com api.species.kuroshio-lab.com; location /.well-known/acme-challenge/ { root /var/www/certbot; } } }' > /etc/nginx/nginx.conf && nginx -g \"daemon off;\""
+
+# 2. Run Certbot to request the certificate
+# Note: We override the entrypoint to bypass the renewal loop
 cd /opt/species-tracker
-sudo ./setup-ssl.sh
+sudo docker-compose run --rm --no-deps --entrypoint "certbot" certbot certonly \
+    --webroot \
+    --webroot-path=/var/www/certbot \
+    --email admin@kuroshio-lab.com \
+    --agree-tos \
+    --no-eff-email \
+    -d species.kuroshio-lab.com \
+    -d api.species.kuroshio-lab.com
 
-# This will:
-# 1. Start nginx
-# 2. Request SSL certificates from Let's Encrypt
-# 3. Install certificates for both domains
-# 4. Restart nginx with SSL enabled
-
-# Exit SSH
-exit
+# 3. Stop the bootstrap container
+sudo docker stop nginx-bootstrap
 ```
 
-⏱️ **Time:** 2-3 minutes
+# Exit SSH
+
+exit⏱️ **Time:** 5 minutes
 
 ## Step 6: Deploy Application
+Now that the certificates exist, you can push your application code. This script builds images locally, uploads them, and starts the full production stack.
 
 From your local machine:
 
