@@ -14,14 +14,13 @@ services:
 
   backend:
     build: ./backend
-    command: gunicorn core.wsgi:application --bind 0.0.0.0:8000
+    command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./backend:/app
     ports:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/marine_tracker
-      # OBIS/WoRMS API URLs if different from defaults
       OBIS_API_BASE_URL: https://api.obis.org/v3/
       WORMS_API_BASE_URL: https://www.marinespecies.org/rest/
       # Default geometry for scheduled tasks if not overridden in settings.py
@@ -30,16 +29,19 @@ services:
       - db
 
   frontend:
-    build: ./frontend
-    command: npm run dev
+    build:
+      context: ./frontend
+      target: development
     volumes:
       - ./frontend:/app
       - /app/node_modules
+      - /app/.next
     ports:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
       INTERNAL_API_URL: http://backend:8000
+      NODE_ENV: development
     depends_on:
       - backend
 

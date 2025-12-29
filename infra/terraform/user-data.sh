@@ -216,7 +216,7 @@ DOCKERCOMPOSE
 # =============================================================================
 # Create Nginx configuration
 # =============================================================================
-cat > nginx.conf << 'NGINXCONF'
+cat > nginx.conf << NGINXCONF
 events {
     worker_connections 1024;
 }
@@ -242,8 +242,8 @@ http {
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
 
     # Rate limiting
-    limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
-    limit_req_zone $binary_remote_addr zone=general_limit:10m rate=50r/s;
+    limit_req_zone \$binary_remote_addr zone=api_limit:10m rate=10r/s;
+    limit_req_zone \$binary_remote_addr zone=general_limit:10m rate=50r/s;
 
     upstream backend {
         server backend:8000;
@@ -265,7 +265,7 @@ http {
 
         # Redirect everything else to HTTPS
         location / {
-            return 301 https://$host$request_uri;
+            return 301 https://\$host\$request_uri;
         }
     }
 
@@ -292,13 +292,13 @@ http {
             limit_req zone=general_limit burst=20 nodelay;
             proxy_pass http://frontend;
             proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Upgrade \$http_upgrade;
             proxy_set_header Connection 'upgrade';
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_cache_bypass $http_upgrade;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+            proxy_cache_bypass \$http_upgrade;
         }
     }
 
@@ -339,10 +339,10 @@ http {
             limit_req zone=api_limit burst=5 nodelay;
             proxy_pass http://backend;
             proxy_http_version 1.1;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
 
             # CORS headers (Django handles this, but good to have backup)
             add_header Access-Control-Allow-Origin "https://${frontend_domain}" always;
@@ -351,7 +351,7 @@ http {
             add_header Access-Control-Expose-Headers "Content-Length,Content-Range" always;
 
             # Handle preflight requests
-            if ($request_method = 'OPTIONS') {
+            if (\$request_method = 'OPTIONS') {
                 return 204;
             }
         }
