@@ -1,0 +1,11 @@
+# frontend/.dockerignore
+node_modules
+.next
+.git
+.gitignore
+npm-debug.log
+yarn-debug.log
+.env
+.env.local
+.env.development
+.env.test
