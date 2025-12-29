@@ -1,0 +1,25 @@
+# infra/terraform/personal.tfvars.example
+# Copy this file to personal.tfvars and fill in your values
+# NEVER commit personal.tfvars to git!
+
+aws_region  = "eu-west-3"
+environment = "production"
+
+# EC2 Configuration
+instance_type = "..."
+volume_size   =
+
+# RDS Configuration
+db_instance_class = "..."
+
+# SSH Configuration (REQUIRED)
+ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC..." # Your SSH public key
+
+# SSH allowed IPs (IMPORTANT: Restrict to your IP in production!)
+ssh_allowed_ips = [
+  "0.0.0.0/0"  # Allow from anywhere (NOT RECOMMENDED for production)
+  # "YOUR_IP/32"  # Uncomment and replace with your actual IP
+]
+
+# Secrets (REQUIRED)
+resend_api_key = "re_...."
