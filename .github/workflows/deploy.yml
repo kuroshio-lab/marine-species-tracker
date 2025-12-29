@@ -22,48 +22,41 @@ jobs:
   test-backend:
     name: Test Backend
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgis/postgis:14-3.3
+    services: # Define services required for the job
+      postgres: # Assuming your backend needs a Postgres database
+        image: postgres:14-alpine
         env:
           POSTGRES_DB: test_db
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - "5432:5432"
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-        ports:
-          - 5432:5432
 
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-
-      - name: Install Poetry
+      - name: Build and run backend services
         run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          docker-compose build backend # Build the backend image if not pre-built
+          docker-compose up -d backend
 
-      - name: Install dependencies
-        working-directory: ./backend
+      - name: Wait for backend to be healthy (optional, but good practice)
         run: |
-          poetry install --no-interaction
+          # Use docker-compose's built-in healthcheck wait
+          docker-compose wait backend
 
-      - name: Run tests
-        working-directory: ./backend
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
-          DJANGO_SECRET_KEY: test-secret-key
-          DEBUG: 'True'
+      - name: Run backend tests with Pytest
         run: |
-          poetry run python manage.py test
+          docker-compose exec backend pytest
+
+      - name: Stop and remove containers
+        if: always()
+        run: docker-compose down
 
   test-frontend:
     name: Test Frontend
