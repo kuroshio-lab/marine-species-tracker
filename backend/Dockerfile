@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
 # Install Poetry
 RUN pip install --upgrade pip && pip install poetry
 
-# Use the global environment (not virtualenv, which is best practice for Docker)
+# Use global environment for Docker
 ENV POETRY_VIRTUALENVS_CREATE=false
 
 WORKDIR /app
@@ -28,5 +28,5 @@ COPY . .
 
 EXPOSE 8000
 
-# CMD for django app remains
+# Default command (overridden in docker-compose for dev)
 CMD ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:8000"]
