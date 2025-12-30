@@ -416,12 +416,13 @@ resource "aws_instance" "app" {
     frontend_domain        = "species.kuroshio-lab.com"
     api_domain             = "api.species.kuroshio-lab.com"
     environment            = var.environment
+    logging_level          = var.environment == "production" ? "ERROR" : "INFO"
     hosted_zone_id         = data.terraform_remote_state.global.outputs.hosted_zone_id
 
   })
 
-  user_data_replace_on_change = true
-  
+  user_data_replace_on_change = false
+
   root_block_device {
     volume_size = var.volume_size
     volume_type = "gp3"

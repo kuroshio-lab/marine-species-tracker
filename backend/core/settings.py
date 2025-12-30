@@ -261,3 +261,55 @@ OBIS_DEFAULT_FETCH_PAGES = int(os.environ.get("OBIS_DEFAULT_FETCH_PAGES", 1))
 WORMS_API_BASE_URL = os.environ.get(
     "WORMS_API_BASE_URL", "https://www.marinespecies.org/rest/"
 )
+
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+LOGGING_LEVEL = os.getenv("LOGGING_LEVEL", "INFO" if not DEBUG else "DEBUG")
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": (
+                "{levelname} {asctime} {module} {process:d} {thread:d}"
+                " [User:{user}] {message}"
+            ),
+            "style": "{",
+        },
+        "simple": {
+            "format": "{levelname} {message}",
+            "style": "{",
+        },
+    },
+    "filters": {
+        "user_filter": {
+            "()": "core.logging_utils.UserFilter",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": LOGGING_LEVEL,
+            "filters": ["user_filter"],
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": LOGGING_LEVEL,
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "users": {
+            "handlers": ["console"],
+            "level": LOGGING_LEVEL,
+            "propagate": False,
+        },
+    },
+}

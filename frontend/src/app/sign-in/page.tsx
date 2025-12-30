@@ -55,8 +55,11 @@ export default function SigninPage() {
         });
 
         if (res.ok) {
+          console.log("Login successful, refetching user..."); // eslint-disable-line no-console
           await refetchUser();
+          console.log("User refetched, redirecting..."); // eslint-disable-line no-console
           router.replace("/");
+          console.log("Redirect initiated."); // eslint-disable-line no-console
         } else if (res.status === 401) {
           // Check if account needs email verification
           const errorData = await res.json().catch(() => ({}));
@@ -74,7 +77,7 @@ export default function SigninPage() {
           setError("Invalid credentials");
         }
       } catch (err) {
-        console.error("Network error during sign in:", err); // eslint-disable-line no-console
+        console.error("Caught error in handleSignin::", err); // eslint-disable-line no-console
         setError("Network error. Please try again.");
       } finally {
         stopLoading();
