@@ -1,5 +1,6 @@
 import base64
 import secrets
+import logging
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -13,7 +14,11 @@ from django.utils import timezone
 
 from observations.serializers import ObservationGeoSerializer
 
+from core.logging_utils import set_current_user, clear_current_user
+
 User = get_user_model()
+
+logger = logging.getLogger("users")
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -25,34 +30,47 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ("id", "email", "password", "username", "role")
 
     def create(self, validated_data):
-        # Create inactive user
-        user = User.objects.create_user(
-            email=validated_data["email"],
-            username=validated_data["username"],
-            password=validated_data["password"],
-            role=validated_data["role"],
-            is_active=False,  # User is inactive until email is verified
-        )
+        email = validated_data["email"]
+        set_current_user(email)
+        logger.info(f"Attempting to register new user: {email}")
 
-        # Generate verification token
-        verification_token = secrets.token_urlsafe(32)
-        user.email_verification_token = verification_token
-        user.email_verification_token_created = timezone.now()
-        user.save()
+        try:
+            # Create inactive user
+            user = User.objects.create_user(
+                email=email,
+                username=validated_data["username"],
+                password=validated_data["password"],
+                role=validated_data["role"],
+                is_active=False,  # User is inactive until email is verified
+            )
 
-        # Send verification email
-        self._send_verification_email(user, verification_token)
+            # Generate verification token
+            verification_token = secrets.token_urlsafe(32)
+            user.email_verification_token = verification_token
+            user.email_verification_token_created = timezone.now()
+            user.save()
 
-        return user
+            # Send verification email
+            self._send_verification_email(user, verification_token)
+            logger.info(
+                "User registered successfully. Verification email sent to:"
+                f" {email}"
+            )
+
+            return user
+        except Exception as e:
+            logger.error(f"Failed to register user {email}: {str(e)}")
+            raise
+        finally:
+            clear_current_user()
 
     def _send_verification_email(self, user, token):
         """Send email verification link to user"""
-        # Environment-specific domain logic
         if settings.DEBUG:
             current_site_domain = "localhost:3000"
             protocol = "http"
         else:
-            current_site_domain = "species-tracker.kuroshio-lab.com"
+            current_site_domain = "species.kuroshio-lab.com"
             protocol = "https"
 
         verification_url = (
@@ -73,14 +91,24 @@ class RegisterSerializer(serializers.ModelSerializer):
             "users/email_verification_email.txt", email_context
         )
 
-        send_mail(
-            subject="Verify Your Email Address",
-            message=email_plain_message,
-            html_message=email_html_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            fail_silently=False,
-        )
+        try:
+            send_mail(
+                subject="Verify Your Email Address",
+                message=email_plain_message,
+                html_message=email_html_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+            logger.debug(
+                f"Verification email successfully queued for {user.email}"
+            )
+        except Exception as e:
+            logger.error(
+                f"Error sending verification email to {user.email}: {str(e)}"
+            )
+            # We raise here so the user registration can be rolled back if email fails
+            raise
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -125,31 +153,47 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Remove username from fields
         self.fields.pop("username", None)
 
     def validate(self, attrs):
         email = attrs.get("email")
         password = attrs.get("password")
+        set_current_user(email)
 
         if not email or not password:
+            logger.warning("Login attempt missing credentials.")
             raise serializers.ValidationError(
                 "Must include 'email' and 'password'."
             )
 
+        logger.info(f"Login attempt received for: {email}")
+
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
+            logger.warning(f"Login failed: No user found with email {email}")
             raise serializers.ValidationError("No user with this email.")
 
         # Check if user is active (email verified)
         if not user.is_active:
+            logger.warning(
+                f"Login failed: User {email} is inactive (unverified email)."
+            )
             raise serializers.ValidationError(
                 "Please verify your email address before signing in."
             )
 
         attrs["username"] = user.username  # SimpleJWT expects 'username'
-        return super().validate(attrs)
+
+        try:
+            data = super().validate(attrs)
+            logger.info(f"Login successful for user: {email}")
+            return data
+        except Exception as e:
+            logger.error(f"Login authentication failed for {email}: {str(e)}")
+            raise
+        finally:
+            clear_current_user()
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):
@@ -180,7 +224,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
             protocol = "http"
         else:
             # For production, use your actual frontend domain
-            current_site_domain = "species-tracker.kuroshio-lab.com"
+            current_site_domain = "species.kuroshio-lab.com"
             protocol = "https"  # Always use HTTPS in production
 
         # Construct the password reset link for the frontend

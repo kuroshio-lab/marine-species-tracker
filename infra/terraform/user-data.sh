@@ -115,6 +115,7 @@ DB_PORT=5432
 DJANGO_SECRET_KEY=$DJANGO_SECRET
 DEBUG=False
 ENV=${environment}
+LOGGING_LEVEL=${logging_level}
 ALLOWED_HOSTS=${api_domain},localhost,backend,species-backend
 CORS_ALLOWED_ORIGINS=https://${frontend_domain}
 CSRF_TRUSTED_ORIGINS=https://${frontend_domain}
@@ -349,6 +350,7 @@ http {
             add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
             add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization" always;
             add_header Access-Control-Expose-Headers "Content-Length,Content-Range" always;
+            add_header Access-Control-Allow-Credentials "true" always;
 
             # Handle preflight requests
             if (\$request_method = 'OPTIONS') {
