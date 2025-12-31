@@ -119,6 +119,7 @@ LOGGING_LEVEL=${logging_level}
 ALLOWED_HOSTS=${api_domain},localhost,backend,species-backend
 CORS_ALLOWED_ORIGINS=https://${frontend_domain}
 CSRF_TRUSTED_ORIGINS=https://${frontend_domain}
+AUTH_COOKIE_DOMAIN=.${frontend_domain}
 
 # AWS
 USE_S3=True
