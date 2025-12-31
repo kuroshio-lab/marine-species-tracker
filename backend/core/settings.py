@@ -157,7 +157,7 @@ SIMPLE_JWT = {
     "AUTH_COOKIE_REFRESH": (
         "refresh_token"
     ),  # The name of the cookie for the refresh token
-    "AUTH_COOKIE_DOMAIN": None,
+    "AUTH_COOKIE_DOMAIN": os.getenv("AUTH_COOKIE_DOMAIN", None),
     "AUTH_COOKIE_SECURE": True,  # Recommended: Secure
     "AUTH_COOKIE_HTTP_ONLY": True,  # Recommended: HttpOnly
     "AUTH_COOKIE_SAMESITE": "Lax",  # Recommended: SameSite=Lax
