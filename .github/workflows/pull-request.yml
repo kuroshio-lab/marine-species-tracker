@@ -22,8 +22,6 @@ jobs:
           POSTGRES_DB: test_db
           POSTGRES_USER: test_user
           POSTGRES_PASSWORD: test_password
-        ports:
-          - "5432:5432"
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -41,10 +39,10 @@ jobs:
         run: |
           docker compose build backend
           docker compose up -d backend
-
-      - name: Wait for backend to be healthy
-        working-directory: ./backend
-        run: docker compose wait backend
+          
+      # - name: Wait for backend to be healthy
+      #   working-directory: ./backend
+      #   run: docker compose wait backend
 
       - name: Run backend tests with Pytest
         working-directory: ./backend
