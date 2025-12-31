@@ -208,6 +208,9 @@ else:
     CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
     # ALLOWED_HOSTS: restrict to prod domains
     ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
+    SESSION_COOKIE_DOMAIN = ".kuroshio-lab.com"
+    CSRF_COOKIE_DOMAIN = ".kuroshio-lab.com"
+    SIMPLE_JWT["AUTH_COOKIE_DOMAIN"] = ".kuroshio-lab.com"
 
 # =============================================================================
 # AWS S3 (for prod)
