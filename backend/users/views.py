@@ -46,14 +46,22 @@ class EmailTokenObtainPairView(TokenObtainPairView):
         response = super().post(request, *args, **kwargs)
         if response.status_code == 200 and "access" in response.data:
             access_token = response.data["access"]
+
+            # Get settings from SIMPLE_JWT config
+            jwt_settings = settings.SIMPLE_JWT
+
             response.set_cookie(
-                key="access_token",
+                key=jwt_settings.get("AUTH_COOKIE", "access_token"),
                 value=access_token,
-                httponly=True,
-                secure=not settings.DEBUG,
-                samesite="Lax",
+                httponly=jwt_settings.get("AUTH_COOKIE_HTTP_ONLY", True),
+                secure=jwt_settings.get(
+                    "AUTH_COOKIE_SECURE", not settings.DEBUG
+                ),
+                samesite=jwt_settings.get("AUTH_COOKIE_SAMESITE", "Lax"),
+                # Use the domain from settings!
+                domain=jwt_settings.get("AUTH_COOKIE_DOMAIN"),
                 max_age=24 * 60 * 60,
-                path="/",
+                path=jwt_settings.get("AUTH_COOKIE_PATH", "/"),
             )
         return response
 

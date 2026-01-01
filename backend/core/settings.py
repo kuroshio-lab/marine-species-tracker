@@ -151,12 +151,8 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),  # Recommended: 7 days
     "ROTATE_REFRESH_TOKENS": True,  # Recommended: Enabled
     "AUTH_HEADER_TYPES": ("Bearer",),
-    "AUTH_COOKIE": (
-        "access_token"
-    ),  # The name of the cookie for the access token
-    "AUTH_COOKIE_REFRESH": (
-        "refresh_token"
-    ),  # The name of the cookie for the refresh token
+    "AUTH_COOKIE": "access_token",
+    "AUTH_COOKIE_REFRESH": "refresh_token",
     "AUTH_COOKIE_DOMAIN": os.getenv("AUTH_COOKIE_DOMAIN", None),
     "AUTH_COOKIE_SECURE": True,  # Recommended: Secure
     "AUTH_COOKIE_HTTP_ONLY": True,  # Recommended: HttpOnly
@@ -169,7 +165,7 @@ SIMPLE_JWT = {
 # =============================================================================
 CORS_ALLOW_CREDENTIALS = True
 
-# Default dev origins (use env for prod!)
+# Default dev origins
 CORS_ALLOWED_ORIGINS = os.getenv(
     "CORS_ALLOWED_ORIGINS",
     "http://localhost:3000,http://127.0.0.1:3000,http://0.0.0.0",
@@ -190,7 +186,6 @@ if DEBUG or ENV == "development":
     # Optional: For DRF Swagger etc. in dev, you may want all hosts
     ALLOWED_HOSTS = ["*"]
     SECURE_HSTS_SECONDS = 0
-    # CORS/URLs already set for dev above
 else:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
