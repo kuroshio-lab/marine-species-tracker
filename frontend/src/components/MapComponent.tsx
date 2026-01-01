@@ -49,7 +49,6 @@ export default function MapComponent({
   zoomTrigger,
   mapRefreshTrigger,
 }: MapComponentProps) {
-  // Make sure selectedObservation is destructured
   const defaultPosition: [number, number] = [0, 0];
   const [allMapObservations, setAllMapObservations] = useState<
     GeoJsonFeature[]
@@ -99,7 +98,7 @@ export default function MapComponent({
     <MapContainer
       center={defaultPosition}
       zoom={2}
-      minZoom={2} // Prevents zooming out too far
+      minZoom={2}
       worldCopyJump
       scrollWheelZoom
       className="h-full w-full"
@@ -134,7 +133,7 @@ export default function MapComponent({
                   popupClassName = "popup-pending";
                   break;
                 default:
-                  popupClassName = ""; // No specific class for default or unknown status
+                  popupClassName = "";
               }
             } else {
               popupClassName = "popup-external";
