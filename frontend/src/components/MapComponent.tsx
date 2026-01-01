@@ -99,6 +99,8 @@ export default function MapComponent({
     <MapContainer
       center={defaultPosition}
       zoom={2}
+      minZoom={2} // Prevents zooming out too far
+      worldCopyJump
       scrollWheelZoom
       className="h-full w-full"
       style={{ zIndex }}
@@ -107,73 +109,84 @@ export default function MapComponent({
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        noWrap={false}
       />
       {allObservations &&
         allObservations.length > 0 &&
         allObservations.map((feature) => {
           const [lng, lat] = feature.geometry.coordinates;
-          // Determine the class for the Popup based on observation status and source
-          let popupClassName = "";
-          if (feature.properties.source === "user") {
-            switch (feature.properties.validated) {
-              case "validated":
-                popupClassName = "popup-validated";
-                break;
-              case "pending":
-                popupClassName = "popup-pending";
-                break;
-              default:
-                popupClassName = ""; // No specific class for default or unknown status
-            }
-          } else {
-            popupClassName = "popup-external";
-          }
-
-          let markerIcon;
-          if (feature.properties.source === "user") {
-            if (feature.properties.validated === "validated") {
-              markerIcon = validatedUserIcon;
-            } else if (feature.properties.validated === "pending") {
-              markerIcon = pendingUserIcon;
+          // We define 3 positions for every marker so they repeat with the map banner
+          const positions: [number, number][] = [
+            [lat, lng], // Original
+            [lat, lng + 360], // Right copy
+            [lat, lng - 360], // Left copy
+          ];
+          return positions.map((pos) => {
+            const markerKey = `${feature.id}-${pos[1]}`;
+            // Determine the class for the Popup based on observation status and source
+            let popupClassName = "";
+            if (feature.properties.source === "user") {
+              switch (feature.properties.validated) {
+                case "validated":
+                  popupClassName = "popup-validated";
+                  break;
+                case "pending":
+                  popupClassName = "popup-pending";
+                  break;
+                default:
+                  popupClassName = ""; // No specific class for default or unknown status
+              }
             } else {
-              // This covers 'rejected' and any other unhandled user statuses
+              popupClassName = "popup-external";
+            }
+
+            let markerIcon;
+            if (feature.properties.source === "user") {
+              if (feature.properties.validated === "validated") {
+                markerIcon = validatedUserIcon;
+              } else if (feature.properties.validated === "pending") {
+                markerIcon = pendingUserIcon;
+              } else {
+                // This covers 'rejected' and any other unhandled user statuses
+                markerIcon = externalIcon;
+              }
+            } else {
+              // For non-user sources
               markerIcon = externalIcon;
             }
-          } else {
-            // For non-user sources
-            markerIcon = externalIcon;
-          }
 
-          return (
-            <Marker key={feature.id} position={[lat, lng]} icon={markerIcon}>
-              <Popup className={popupClassName}>
-                <MiniObservationCard
-                  observation={{
-                    id: feature.id as number,
-                    speciesName: feature.properties.speciesName,
-                    commonName: feature.properties.commonName ?? null,
-                    observationDatetime: feature.properties.observationDatetime,
-                    locationName: feature.properties.locationName ?? null,
-                    source: feature.properties.source,
-                    image: feature.properties.image ?? null,
-                    depthMin: feature.properties.depthMin ?? null,
-                    depthMax: feature.properties.depthMax ?? null,
-                    bathymetry: feature.properties.bathymetry ?? null,
-                    temperature: feature.properties.temperature ?? null,
-                    visibility: feature.properties.visibility ?? null,
-                    sex: feature.properties.sex ?? null,
-                    notes: feature.properties.notes ?? null,
-                    validated: feature.properties.validated,
-                    location: feature.geometry,
-                    userId: feature.properties.userId ?? null,
-                    username: feature.properties.username ?? null,
-                    createdAt: feature.properties.created_at ?? null,
-                    updatedAt: feature.properties.updated_at ?? null,
-                  }}
-                />
-              </Popup>
-            </Marker>
-          );
+            return (
+              <Marker key={markerKey} position={pos} icon={markerIcon}>
+                <Popup className={popupClassName}>
+                  <MiniObservationCard
+                    observation={{
+                      id: feature.id as number,
+                      speciesName: feature.properties.speciesName,
+                      commonName: feature.properties.commonName ?? null,
+                      observationDatetime:
+                        feature.properties.observationDatetime,
+                      locationName: feature.properties.locationName ?? null,
+                      source: feature.properties.source,
+                      image: feature.properties.image ?? null,
+                      depthMin: feature.properties.depthMin ?? null,
+                      depthMax: feature.properties.depthMax ?? null,
+                      bathymetry: feature.properties.bathymetry ?? null,
+                      temperature: feature.properties.temperature ?? null,
+                      visibility: feature.properties.visibility ?? null,
+                      sex: feature.properties.sex ?? null,
+                      notes: feature.properties.notes ?? null,
+                      validated: feature.properties.validated,
+                      location: feature.geometry,
+                      userId: feature.properties.userId ?? null,
+                      username: feature.properties.username ?? null,
+                      createdAt: feature.properties.created_at ?? null,
+                      updatedAt: feature.properties.updated_at ?? null,
+                    }}
+                  />
+                </Popup>
+              </Marker>
+            );
+          });
         })}
     </MapContainer>
   );
