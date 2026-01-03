@@ -260,6 +260,14 @@ WORMS_API_BASE_URL = os.environ.get(
     "WORMS_API_BASE_URL", "https://www.marinespecies.org/rest/"
 )
 
+# Custom settings for map observations
+MAP_OBSERVATION_DEFAULT_LIMIT = int(
+    os.environ.get("MAP_OBSERVATION_DEFAULT_LIMIT", 500)
+)
+MAP_OBSERVATION_USER_RATIO = float(
+    os.environ.get("MAP_OBSERVATION_USER_RATIO", 0.30)
+)  # 30% user, 70% external
+
 # =============================================================================
 # Logging Configuration
 # =============================================================================

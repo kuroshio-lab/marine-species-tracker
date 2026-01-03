@@ -29,7 +29,7 @@ export default function Home() {
 
   return (
     <main className="h-screen flex flex-col">
-      <div className="mx-auto max-w-[1440px] h-full max-h-[1076px] w-full p-4">
+      <div className="mx-auto max-w-[2560px] h-full max-h-[1076px] w-full p-4">
         <UserObservationSection className="h-full" />
       </div>
     </main>

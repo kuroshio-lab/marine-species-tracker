@@ -109,11 +109,33 @@ export async function createObservation(
   }
 }
 
-export async function fetchMapObservations(): Promise<GeoJsonFeatureCollection> {
+interface FetchMapObservationsParams {
+  lat?: number;
+  lng?: number;
+  radius?: number;
+  limit?: number;
+  offset?: number;
+}
+
+export async function fetchMapObservations(
+  params?: FetchMapObservationsParams,
+): Promise<GeoJsonFeatureCollection> {
   try {
+    const query = new URLSearchParams();
+    if (params) {
+      if (params.lat !== undefined) query.append("lat", params.lat.toString());
+      if (params.lng !== undefined) query.append("lng", params.lng.toString());
+      if (params.radius !== undefined)
+        query.append("radius", params.radius.toString());
+      if (params.limit !== undefined)
+        query.append("limit", params.limit.toString());
+      if (params.offset !== undefined)
+        query.append("offset", params.offset.toString());
+    }
+
     // The map endpoint returns GeoJsonFeatureCollection directly, not PaginatedGeoJsonFeatures
     const response = await api.get<GeoJsonFeatureCollection>(
-      "v1/map/observations/",
+      `v1/map/observations/?${query.toString()}`,
     );
     return response.data; // Return the data directly
   } catch (error) {

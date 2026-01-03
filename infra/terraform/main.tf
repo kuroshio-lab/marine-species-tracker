@@ -421,7 +421,7 @@ resource "aws_instance" "app" {
 
   })
 
-  user_data_replace_on_change = true
+  user_data_replace_on_change = false
 
   root_block_device {
     volume_size = var.volume_size
