@@ -24,6 +24,10 @@ const buttonVariants = cva(
           "bg-accent-coral text-white hover:[background:linear-gradient(to_bottom_right,#FF6F59,#0077BA)] transition-all duration-100",
         addingObs:
           "kerama-depth text-ocean-200 hover:[background:linear-gradient(to_bottom_right,#003A63,#0077BA,#21C6E3)] transition-all duration-100",
+        actions:
+          "bg-brand-primary-700 text-brand-primary-100 rounded-xl hover:bg-brand-primary-500 transition-colors shadow-sm",
+        signOut:
+          "bg-neutral-gray-500/20 text-neutral-gray-300 rounded-xl hover:bg-neutral-gray-700/20 transition-colors shadow-sm border border-neutral-gray-500/10",
       },
       size: {
         default: "h-9 px-4 py-2",

@@ -1,7 +1,10 @@
 # backend/map/views.py
 
+import math
 from django.contrib.gis.geos import Point
 from django.contrib.gis.measure import D
+from django.contrib.gis.db.models.functions import Distance
+from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -19,30 +22,53 @@ from .serializers import (
 @permission_classes([IsAuthenticated])
 def map_observations(request):
     """
-    Geo-filtered observations for the map.
-    Params: ?lat=<latitude>&lng=<longitude>&radius=<km>
+    Geo-filtered observations for the map with pagination and ratio limits.
+    Params:
+        ?lat=<latitude>&lng=<longitude>&radius=<km> (for geographic filtering)
+        ?limit=<number> (total number of observations to return)
+        ?offset=<number> (starting index for pagination)
     """
 
     lat = request.GET.get("lat")
     lng = request.GET.get("lng")
-    radius = request.GET.get("radius", 50)
+    radius = request.GET.get("radius")
+    limit = int(
+        request.GET.get("limit", settings.MAP_OBSERVATION_DEFAULT_LIMIT)
+    )
+    offset = int(request.GET.get("offset", 0))
 
     user_observations_queryset = Observation.objects.all()
-    curated_species_queryset = CuratedObservation.objects.all()
+    # Filter out CuratedObservations with null locations
+    curated_species_queryset = CuratedObservation.objects.exclude(
+        location__isnull=True
+    )
 
     if lat and lng:
         try:
-            lat, lng, radius = float(lat), float(lng), float(radius)
-            point = Point(float(lng), float(lat))  # Note order: lng, lat!
-            distance_filter = D(km=radius)
+            lat, lng = float(lat), float(lng)
+            point = Point(
+                float(lng), float(lat), srid=4326
+            )  # Note order: lng, lat!
 
-            # Apply geo-filtering to both querysets
-            user_observations_queryset = user_observations_queryset.filter(
-                location__distance_lte=(point, distance_filter)
-            )
-            curated_species_queryset = curated_species_queryset.filter(
-                location__distance_lte=(point, distance_filter)
-            )
+            # Apply geo-filtering
+            if radius:
+                radius = float(radius)
+                distance_filter = D(km=radius)
+                user_observations_queryset = user_observations_queryset.filter(
+                    location__distance_lte=(point, distance_filter)
+                )
+                curated_species_queryset = curated_species_queryset.filter(
+                    location__distance_lte=(point, distance_filter)
+                )
+
+            # Annotate with distance and order by distance from the center point
+            user_observations_queryset = user_observations_queryset.annotate(
+                distance=Distance("location", point)
+            ).order_by("distance")
+            curated_species_queryset = curated_species_queryset.annotate(
+                distance=Distance("location", point)
+            ).order_by("distance")
+
         except (TypeError, ValueError) as e:
             print(f"Error in geo-filtering parameters: {e}")
             return Response(
@@ -58,23 +84,42 @@ def map_observations(request):
                 },
                 status=500,
             )
+    else:
+        # Default ordering if no lat/lng for geographic ordering
+        user_observations_queryset = user_observations_queryset.order_by(
+            "-created_at"
+        )
+        curated_species_queryset = curated_species_queryset.order_by(
+            "-observation_date"
+        )
 
     try:
-        # Serialize both querysets using the correct Map serializers
-        user_serializer = MapObservationSerializer(
-            user_observations_queryset, many=True
+        # Apply ratio and limit
+        user_limit = math.ceil(limit * settings.MAP_OBSERVATION_USER_RATIO)
+        curated_limit = limit - user_limit
+
+        # Apply offset and limit to the querysets
+        user_observations_list = list(
+            user_observations_queryset[offset : offset + user_limit]
         )
-        curated_serializer = MapCuratedObservationSerializer(
-            curated_species_queryset, many=True
+        curated_species_list = list(
+            curated_species_queryset[offset : offset + curated_limit]
         )
 
-        # Combine the features from both serializers
+        # Serialize
+        user_serializer = MapObservationSerializer(
+            user_observations_list, many=True
+        )
+        curated_serializer = MapCuratedObservationSerializer(
+            curated_species_list, many=True
+        )
+
+        # Combine features
         combined_features = (
             user_serializer.data["features"]
             + curated_serializer.data["features"]
         )
 
-        # Return a single GeoJSON FeatureCollection containing all combined features
         return Response(
             {"type": "FeatureCollection", "features": combined_features}
         )

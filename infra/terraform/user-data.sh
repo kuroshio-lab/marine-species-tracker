@@ -11,6 +11,17 @@ apt-get update
 apt-get upgrade -y
 
 # =============================================================================
+# Setup Swap (2GB)
+# =============================================================================
+if [ ! -f /swapfile ]; then
+    fallocate -l 2G /swapfile
+    chmod 600 /swapfile
+    mkswap /swapfile
+    swapon /swapfile
+    echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
+# =============================================================================
 # Install dependencies
 # =============================================================================
 apt-get install -y \
@@ -429,8 +440,31 @@ cat > /etc/logrotate.d/docker-containers << 'LOGROTATE'
     missingok
     delaycompress
     copytruncate
+    /var/log/obis_refresh_*.log
 }
 LOGROTATE
+
+# =============================================================================
+# Setup Cron Jobs for Data Refresh
+# =============================================================================
+echo "📅 Setting up OBIS data refresh cron jobs..."
+
+# Create a system-wide cron file
+cat > /etc/cron.d/species-tracker-refresh << 'CRON'
+# Monthly Incremental Refresh (1st day of month, 03:00 UTC)
+0 3 1 * * ubuntu cd /opt/species-tracker && /usr/local/bin/docker-compose exec -T backend python manage.py refresh_obis_data --mode incremental >> /var/log/obis_refresh_monthly.log 2>&1
+
+# Bi-Annual Full Refresh (1st day of January and July, 04:00 UTC)
+0 4 1 1,7 * ubuntu cd /opt/species-tracker && /usr/local/bin/docker-compose exec -T backend python manage.py refresh_obis_data --mode full >> /var/log/obis_refresh_biannual.log 2>&1
+CRON
+
+# Set permissions for the cron file
+chmod 0644 /etc/cron.d/species-tracker-refresh
+
+# Create log files and set permissions for the ubuntu user
+touch /var/log/obis_refresh_monthly.log /var/log/obis_refresh_biannual.log
+chown ubuntu:ubuntu /var/log/obis_refresh_monthly.log /var/log/obis_refresh_biannual.log
+chmod 664 /var/log/obis_refresh_monthly.log /var/log/obis_refresh_biannual.log
 
 # =============================================================================
 # Create CloudWatch agent configuration (optional)
