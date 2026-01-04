@@ -161,35 +161,39 @@ body {
   background: linear-gradient(to bottom right, var(--brand-primary-500) 0%, var(--accent-coral-500) 100%);
 } */
 
-    /* Custom utility to override Leaflet popup paragraph margin */
+/* Custom utility to override Leaflet popup paragraph margin */
 .leaflet-popup-content .no-popup-margin p {
-      margin-top: 0.25rem !important;
-      margin-bottom: 0.25rem !important;
+  margin-top: 0.25rem !important;
+  margin-bottom: 0.25rem !important;
 }
 
-  /* Or even more aggressively for a specific margin value */
 .leaflet-popup-content .custom-popup-paragraph-margin p {
-    margin: 0.5em 0px !important; /* Or your desired lower value */
+margin: 0.5em 0px !important; /* Or your desired lower value */
+}
+
+.leaflet-popup-content p {
+  margin-top: 0.25rem !important;
+  margin-bottom: 0.25rem !important;
 }
 
 /* For validated user observation popups */
 .popup-validated .leaflet-popup-content-wrapper {
-  border-color: hsl(var(--brand-primary-500)); /* Border color */
+  border-color: hsl(var(--semantic-success-500)); /* Border color */
   border-width: 2px; /* Set a border width to make it visible */
   border-style: solid; /* Ensure solid border style */
 }
 .popup-validated .leaflet-popup-tip {
-  background: hsl(var(--brand-primary-500)); /* Tip background matches border */
+  background: hsl(var(--semantic-success-500)); /* Tip background matches border */
 }
 
 /* For pending user observation popups */
 .popup-pending .leaflet-popup-content-wrapper {
-  border-color: hsl(var(--brand-primary-300));
+  border-color: hsl(var(--semantic-warning-500));
   border-width: 2px;
   border-style: solid;
 }
 .popup-pending .leaflet-popup-tip {
-  background: hsl(var(--brand-primary-300));
+  background: hsl(var(--semantic-warning-500));
 }
 
 /* For external observation popups */
