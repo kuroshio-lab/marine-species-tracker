@@ -210,16 +210,16 @@ function UserObservationSection({ className }: UserObservationSectionProps) {
       </div>
       <div className="md:col-span-1 h-full flex flex-col overflow-hidden">
         <Card className="rounded-none shadow-none border-none flex-grow flex flex-col overflow-hidden">
-          <CardHeader>
+          <CardHeader className="pr-0">
             <CardTitle className="flex justify-between items-center">
               Observations ({displayObservations.length})
               <ObservationFilterAndSort
-                observations={observations} // Pass the raw observations
+                observations={observations}
                 onFilteredObservationsChange={handleFilteredObservationsChange}
               />
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex-grow overflow-hidden">
+          <CardContent className="flex-grow overflow-hidden pr-0">
             <ScrollArea className="h-full pr-4">
               {renderObservationListContent(
                 isLoading,

@@ -27,7 +27,7 @@ interface MapComponentProps {
 
 const externalIcon = L.divIcon({
   className: "custom-external-marker",
-  html: '<div style="background-color: hsl(var(--brand-primary-700)); width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff;"></div>',
+  html: `<div style="background-color: hsl(var(--brand-primary-700)); border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.3); width: 12px; height: 12px; border-radius: 50%;"></div>`,
   iconSize: [16, 16],
   iconAnchor: [8, 8],
   popupAnchor: [0, -8],
@@ -35,7 +35,7 @@ const externalIcon = L.divIcon({
 
 const validatedUserIcon = L.divIcon({
   className: "custom-user-marker",
-  html: '<div style="background-color: hsl(var(--brand-primary-500)); width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff;"></div>',
+  html: `<div style="background-color: hsl(var(--semantic-success-500)); border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.3); width: 12px; height: 12px; border-radius: 50%;"></div>`,
   iconSize: [16, 16],
   iconAnchor: [8, 8],
   popupAnchor: [0, -8],
@@ -43,7 +43,7 @@ const validatedUserIcon = L.divIcon({
 
 const pendingUserIcon = L.divIcon({
   className: "custom-pending-marker",
-  html: '<div style="background-color: hsl(var(--brand-primary-300)); width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff;"></div>',
+  html: `<div style="background-color: hsl(var(--semantic-warning-500)); border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.3); width: 12px; height: 12px; border-radius: 50%;"></div>`,
   iconSize: [16, 16],
   iconAnchor: [8, 8],
   popupAnchor: [0, -8],

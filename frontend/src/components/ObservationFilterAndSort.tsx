@@ -55,7 +55,7 @@ export function ObservationFilterAndSort({
   };
 
   return (
-    <div className="flex justify-between items-center">
+    <div className="flex justify-between items-center pr-0">
       <Select onValueChange={handleFilterChange} defaultValue={statusFilter}>
         <SelectTrigger className="w-[180px]">
           <SelectValue placeholder="Filter by status" />
