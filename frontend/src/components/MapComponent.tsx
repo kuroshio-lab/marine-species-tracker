@@ -62,6 +62,12 @@ export default function MapComponent({
   const [isMounted, setIsMounted] = useState(false);
 
   const mapRef = useRef<L.Map | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastRequestParamsRef = useRef<string>("");
+  const isLoadingRef = useRef<boolean>(false);
+  const initialLoadDoneRef = useRef<boolean>(false);
+  const openPopupRef = useRef<L.Popup | null>(null);
+  const isAutoPanningForPopupRef = useRef<boolean>(false);
 
   // Function to calculate radius based on zoom level
   // Returns undefined for global view (no radius filter)
@@ -75,59 +81,84 @@ export default function MapComponent({
     return 50; // Small radius for street-level view
   }, []);
 
-  const loadAllMapObservations = useCallback(async () => {
-    // Wait a bit for map to initialize if it's not ready
-    if (!mapRef.current) {
-      // Retry after a short delay
-      setTimeout(() => {
-        if (mapRef.current) {
-          loadAllMapObservations();
-        }
-      }, 100);
-      return;
-    }
-
-    const center = mapRef.current.getCenter();
-    const zoom = mapRef.current.getZoom();
-    const currentRadius = calculateRadius(zoom);
-
-    try {
-      // Pass parameters to the backend
-      // For global view (no radius), still send lat/lng for distance ordering
-      const params: {
-        lat: number;
-        lng: number;
-        radius?: number;
-        limit: number;
-        offset: number;
-      } = {
-        lat: center.lat,
-        lng: center.lng,
-        limit: 500,
-        offset: 0,
-      };
-
-      // Only add radius if it's defined (not global view)
-      if (currentRadius !== undefined) {
-        params.radius = currentRadius;
+  const loadAllMapObservations = useCallback(
+    async (force = false): Promise<void> => {
+      // CRITICAL: Skip if we're auto-panning for a popup - this prevents popup from closing
+      if (isAutoPanningForPopupRef.current && !force) {
+        return;
       }
 
-      const data = await fetchMapObservations(params);
-      setAllMapObservations(data.features);
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("Failed to fetch all map observations:", error);
-    }
-  }, [calculateRadius]);
+      // Wait a bit for map to initialize if it's not ready
+      if (!mapRef.current) {
+        return;
+      }
+
+      const center = mapRef.current.getCenter();
+      const zoom = mapRef.current.getZoom();
+      const currentRadius = calculateRadius(zoom);
+
+      // Create a unique key for this request
+      const requestKey = `${center.lat.toFixed(4)}_${center.lng.toFixed(4)}_${zoom}_${currentRadius ?? "global"}`;
+
+      // Skip if this is the same request as the last one (unless forced)
+      if (!force && requestKey === lastRequestParamsRef.current) {
+        return;
+      }
+
+      // Skip if already loading
+      if (isLoadingRef.current) {
+        return;
+      }
+
+      try {
+        isLoadingRef.current = true;
+        lastRequestParamsRef.current = requestKey;
+
+        const params: {
+          lat: number;
+          lng: number;
+          radius?: number;
+          limit: number;
+          offset: number;
+        } = {
+          lat: center.lat,
+          lng: center.lng,
+          limit: 500,
+          offset: 0,
+        };
+
+        if (currentRadius !== undefined) {
+          params.radius = currentRadius;
+        }
+
+        const data = await fetchMapObservations(params);
+
+        if (isAutoPanningForPopupRef.current && !force) {
+          return;
+        }
+
+        setAllMapObservations(data.features);
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Failed to fetch all map observations:", error);
+        // Reset last request params on error so we can retry
+        lastRequestParamsRef.current = "";
+      } finally {
+        isLoadingRef.current = false;
+      }
+    },
+    [calculateRadius],
+  );
 
   useEffect(() => {
     setIsMounted(true);
     // Wait a bit for the map to initialize before loading observations
     const timer = setTimeout(() => {
-      loadAllMapObservations();
+      loadAllMapObservations(true); // Force initial load
     }, 200);
     return () => clearTimeout(timer);
-  }, [loadAllMapObservations, mapRefreshTrigger]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapRefreshTrigger]);
 
   useEffect(() => {
     if (mapRef.current && selectedObservation) {
@@ -135,24 +166,59 @@ export default function MapComponent({
       mapRef.current.flyTo([lat, lng], 4);
       // Trigger a reload after flying to a selected observation
       // Use a small delay to ensure the map has finished animating
-      setTimeout(() => {
-        loadAllMapObservations();
+      const timer = setTimeout(() => {
+        loadAllMapObservations(true); // Force reload after flyTo
       }, 500);
+      return () => clearTimeout(timer);
     }
-  }, [selectedObservation, zoomTrigger, loadAllMapObservations]);
+    return () => {};
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedObservation, zoomTrigger]);
 
-  // Hook to handle map events for dynamic loading
+  // Hook to handle map events for dynamic loading with debouncing
   function MapEventsHandler() {
     useMapEvents({
       zoomend: () => {
-        loadAllMapObservations();
+        // Skip if we're auto-panning for a popup
+        if (isAutoPanningForPopupRef.current) {
+          return;
+        }
+        // Clear any pending debounce timer
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
+        }
+        // Debounce the request by 300ms
+        debounceTimerRef.current = setTimeout(() => {
+          loadAllMapObservations();
+        }, 300);
       },
       moveend: () => {
-        loadAllMapObservations();
+        // Skip if we're auto-panning for a popup OR if a popup is currently open
+        // This prevents reloads when popup is open, even if flag was reset
+        if (isAutoPanningForPopupRef.current || openPopupRef.current) {
+          return;
+        }
+        // Clear any pending debounce timer
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
+        }
+        // Debounce the request by 300ms
+        debounceTimerRef.current = setTimeout(() => {
+          loadAllMapObservations();
+        }, 300);
       },
     });
     return null;
   }
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
 
   if (!isMounted) {
     return null;
@@ -178,10 +244,11 @@ export default function MapComponent({
       style={{ zIndex }}
       ref={mapRef}
       whenReady={() => {
-        // Load observations once map is ready
-        if (mapRef.current) {
+        // Load observations once map is ready (only once)
+        if (mapRef.current && !initialLoadDoneRef.current) {
+          initialLoadDoneRef.current = true;
           setTimeout(() => {
-            loadAllMapObservations();
+            loadAllMapObservations(true);
           }, 100);
         }
       }}
@@ -237,8 +304,155 @@ export default function MapComponent({
             }
 
             return (
-              <Marker key={markerKey} position={pos} icon={markerIcon}>
-                <Popup className={popupClassName}>
+              <Marker
+                key={markerKey}
+                position={pos}
+                icon={markerIcon}
+                eventHandlers={{
+                  click: (e) => {
+                    // CRITICAL: Clear any pending debounced observation reloads
+                    if (debounceTimerRef.current) {
+                      clearTimeout(debounceTimerRef.current);
+                      debounceTimerRef.current = null;
+                    }
+
+                    // Get marker position before popup opens
+                    const marker = e.target;
+                    const markerLatLng = marker.getLatLng();
+
+                    // Close any previously open popup
+                    if (
+                      openPopupRef.current &&
+                      openPopupRef.current !== marker.getPopup()
+                    ) {
+                      openPopupRef.current.close();
+                    }
+                    // Track the newly opened popup
+                    const popup = marker.getPopup();
+                    if (popup) {
+                      openPopupRef.current = popup;
+                      // Set flag to prevent observation reload during auto-pan
+                      isAutoPanningForPopupRef.current = true;
+
+                      // Ensure popup stays in view after opening
+                      setTimeout(() => {
+                        if (mapRef.current && popup && markerLatLng) {
+                          const popupElement = popup.getElement();
+                          if (popupElement) {
+                            // Get the actual popup card's bounding box
+                            const popupRect =
+                              popupElement.getBoundingClientRect();
+                            const mapContainer = mapRef.current.getContainer();
+                            const mapRect =
+                              mapContainer.getBoundingClientRect();
+
+                            // Calculate padding we want to maintain
+                            const padding = 50;
+
+                            // Check if popup card is outside viewport bounds
+                            const isOutsideTop =
+                              popupRect.top < mapRect.top + padding;
+                            const isOutsideBottom =
+                              popupRect.bottom > mapRect.bottom - padding;
+                            const isOutsideLeft =
+                              popupRect.left < mapRect.left + padding;
+                            const isOutsideRight =
+                              popupRect.right > mapRect.right - padding;
+
+                            const needsPan =
+                              isOutsideTop ||
+                              isOutsideBottom ||
+                              isOutsideLeft ||
+                              isOutsideRight;
+
+                            if (needsPan) {
+                              // Calculate how much we need to pan in pixels
+                              let panX = 0;
+                              let panY = 0;
+
+                              if (isOutsideTop) {
+                                panY = mapRect.top + padding - popupRect.top;
+                              } else if (isOutsideBottom) {
+                                panY =
+                                  mapRect.bottom - padding - popupRect.bottom;
+                              }
+
+                              if (isOutsideLeft) {
+                                panX = mapRect.left + padding - popupRect.left;
+                              } else if (isOutsideRight) {
+                                panX =
+                                  mapRect.right - padding - popupRect.right;
+                              }
+
+                              // Convert pixel offset to lat/lng offset
+                              const currentCenter = mapRef.current.getCenter();
+                              const currentPoint =
+                                mapRef.current.latLngToContainerPoint(
+                                  currentCenter,
+                                );
+                              const newPoint = L.point(
+                                currentPoint.x + panX,
+                                currentPoint.y + panY,
+                              );
+                              const newLatLng =
+                                mapRef.current.containerPointToLatLng(newPoint);
+
+                              // Clamp to valid world bounds
+                              const clampedLat = Math.max(
+                                -85,
+                                Math.min(85, newLatLng.lat),
+                              );
+                              const clampedLng = Math.max(
+                                -180,
+                                Math.min(180, newLatLng.lng),
+                              );
+                              const clampedLatLng = L.latLng(
+                                clampedLat,
+                                clampedLng,
+                              );
+
+                              // Pan to keep popup card in view
+                              mapRef.current.panTo(clampedLatLng, {
+                                animate: true,
+                                duration: 0.3,
+                              });
+
+                              // Reset flag after pan animation completes
+                              setTimeout(() => {
+                                isAutoPanningForPopupRef.current = false;
+                              }, 400);
+                            } else {
+                              // No pan needed, but keep flag true for a short period
+                              // to prevent any immediate moveend events from triggering reload
+                              setTimeout(() => {
+                                isAutoPanningForPopupRef.current = false;
+                              }, 500);
+                            }
+                          }
+                        }
+                      }, 150); // Increased delay to ensure popup is fully rendered
+                    }
+                  },
+                }}
+              >
+                <Popup
+                  className={popupClassName}
+                  autoPan
+                  autoPanPadding={[200, 200]}
+                  autoPanPaddingTopLeft={[200, 200]}
+                  autoPanPaddingBottomRight={[200, 200]}
+                  keepInView
+                  closeOnClick={false}
+                  autoClose={false}
+                  eventHandlers={{
+                    remove: () => {
+                      // Clear reference when popup is closed
+                      if (openPopupRef.current) {
+                        openPopupRef.current = null;
+                      }
+                    },
+                  }}
+                >
                   <MiniObservationCard
                     observation={{
                       id: feature.id as number,
