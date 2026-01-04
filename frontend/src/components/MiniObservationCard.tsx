@@ -54,7 +54,10 @@ function MiniObservationCard({ observation }: MiniObservationCardProps) {
         </p>
         <p>
           <strong>Date:</strong>{" "}
-          {format(new Date(observation.observationDatetime), "dd/MM/yy HH:mm")}
+          {format(
+            new Date(observation.observationDatetime),
+            "dd/MM/yyyy HH:mm",
+          )}
         </p>
 
         {/* All technical data preserved */}

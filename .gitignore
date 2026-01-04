@@ -12,6 +12,20 @@ dist/
 build/
 *.egg
 
+#notebook
+.ipynb_checkpoints/
+*.ipynb
+*.ipynb.lock
+*.ipynb.json
+*.ipynb.md
+*.ipynb.html
+*.ipynb.css
+*.ipynb.js
+*.ipynb.ts
+*.ipynb.tsx
+*.ipynb.jsx
+*.ipynb.json
+
 # Django
 *.log
 local_settings.py
