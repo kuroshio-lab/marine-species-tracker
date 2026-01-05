@@ -1,3 +1,5 @@
+// frontend/src/app/layout.tsx
+
 import "../styles/globals.css";
 import React from "react";
 import { Inter } from "next/font/google";
