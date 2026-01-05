@@ -28,7 +28,6 @@ def map_observations(request):
         ?limit=<number> (total number of observations to return)
         ?offset=<number> (starting index for pagination)
     """
-
     lat = request.GET.get("lat")
     lng = request.GET.get("lng")
     radius = request.GET.get("radius")
@@ -36,12 +35,48 @@ def map_observations(request):
         request.GET.get("limit", settings.MAP_OBSERVATION_DEFAULT_LIMIT)
     )
     offset = int(request.GET.get("offset", 0))
+    species_name = request.GET.get("species_name")
+    common_name = request.GET.get("common_name")
+    min_date = request.GET.get("min_date")
+    max_date = request.GET.get("max_date")
 
     user_observations_queryset = Observation.objects.all()
     # Filter out CuratedObservations with null locations
     curated_species_queryset = CuratedObservation.objects.exclude(
         location__isnull=True
     )
+
+    if species_name:
+        user_observations_queryset = user_observations_queryset.filter(
+            species_name__iexact=species_name
+        )
+        curated_species_queryset = curated_species_queryset.filter(
+            species_name__iexact=species_name
+        )
+
+    if common_name:
+        user_observations_queryset = user_observations_queryset.filter(
+            common_name__iexact=common_name
+        )
+        curated_species_queryset = curated_species_queryset.filter(
+            common_name__iexact=common_name
+        )
+
+    if min_date:
+        user_observations_queryset = user_observations_queryset.filter(
+            observation_datetime__gte=min_date
+        )
+        curated_species_queryset = curated_species_queryset.filter(
+            observation_date__gte=min_date
+        )
+
+    if max_date:
+        user_observations_queryset = user_observations_queryset.filter(
+            observation_datetime__lte=max_date
+        )
+        curated_species_queryset = curated_species_queryset.filter(
+            observation_date__lte=max_date
+        )
 
     if lat and lng:
         try:
@@ -100,10 +135,10 @@ def map_observations(request):
 
         # Apply offset and limit to the querysets
         user_observations_list = list(
-            user_observations_queryset[offset : offset + user_limit]
+            user_observations_queryset[offset: offset + user_limit]
         )
         curated_species_list = list(
-            curated_species_queryset[offset : offset + curated_limit]
+            curated_species_queryset[offset: offset + curated_limit]
         )
 
         # Serialize

@@ -1,10 +1,26 @@
+import django_filters
+from django.db.models import Q
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics
+from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.db.models import Q
 
 from .models import CuratedObservation
 from .serializers import CuratedObservationSerializer
+
+
+class CuratedObservationFilter(django_filters.FilterSet):
+    min_date = django_filters.DateTimeFilter(
+        field_name="observation_datetime", lookup_expr="gte"
+    )
+    max_date = django_filters.DateTimeFilter(
+        field_name="observation_datetime", lookup_expr="lte"
+    )
+
+    class Meta:
+        model = CuratedObservation
+        fields = ["species_name", "common_name", "min_date", "max_date"]
 
 
 class CuratedObservationList(generics.ListAPIView):
@@ -12,10 +28,9 @@ class CuratedObservationList(generics.ListAPIView):
         "-observation_datetime"
     )
     serializer_class = CuratedObservationSerializer
-    # Optional: add filters or search here
-    # filter_backends = [DjangoFilterBackend, SearchFilter]
-    # filterset_fields = ['species_name', 'source', 'observation_date']
-    # search_fields = ['species_name', 'common_name', 'location_name']
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_class = CuratedObservationFilter
+    search_fields = ["species_name", "common_name"]
 
 
 class SpeciesSearchView(APIView):

@@ -373,7 +373,10 @@ export default function ObservationModal({
           userId: user.id,
           username: user.username,
         };
-        await createObservation(newObservationData);
+        await createObservation({
+          ...newObservationData,
+          machineObservation: "User Observation",
+        });
       }
       onObservationUpserted();
       onClose();

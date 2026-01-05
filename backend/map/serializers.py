@@ -11,7 +11,6 @@ class ObservationGeoSerializer(GeoFeatureModelSerializer):
     observationDatetime = serializers.DateTimeField(
         source="observation_datetime"
     )
-    # New fields for Observation
     commonName = serializers.CharField(
         source="common_name", allow_null=True, required=False
     )
@@ -63,6 +62,7 @@ class CuratedObservationGeoSerializer(GeoFeatureModelSerializer):
     speciesName = serializers.CharField(source="species_name")
     commonName = serializers.CharField(source="common_name")
     locationName = serializers.CharField(source="location_name")
+    machineObservation = serializers.CharField(source="machine_observation")
     observationDatetime = serializers.DateTimeField(
         source="observation_datetime"
     )
@@ -76,13 +76,11 @@ class CuratedObservationGeoSerializer(GeoFeatureModelSerializer):
     temperature = serializers.FloatField(allow_null=True, required=False)
     visibility = serializers.FloatField(allow_null=True, required=False)
     notes = serializers.CharField(allow_null=True, required=False)
-    image = serializers.URLField(
-        allow_null=True, required=False
-    )  # CuratedObservation uses URLField for image
+    image = serializers.URLField(allow_null=True, required=False)
     sex = serializers.CharField(allow_null=True, required=False)
     userId = serializers.CharField(
         source="user", allow_null=True, required=False
-    )  # As user is a CharField in CuratedObservation
+    )
 
     class Meta:
         model = CuratedObservation
@@ -94,6 +92,7 @@ class CuratedObservationGeoSerializer(GeoFeatureModelSerializer):
             "location",
             "observationDatetime",
             "locationName",
+            "machineObservation",
             "source",
             "image",
             "depthMin",
@@ -111,14 +110,13 @@ class CuratedObservationGeoSerializer(GeoFeatureModelSerializer):
 class MapCuratedObservationSerializer(GeoFeatureModelSerializer):
     source = serializers.SerializerMethodField()
     id = serializers.SerializerMethodField()
-    speciesName = serializers.CharField(source="species_name")  # Add this
-    commonName = serializers.CharField(
-        source="common_name", allow_null=True
-    )  # Add this, with allow_null
-    locationName = serializers.CharField(source="location_name")  # Add this
+    speciesName = serializers.CharField(source="species_name")
+    commonName = serializers.CharField(source="common_name", allow_null=True)
+    locationName = serializers.CharField(source="location_name")
+    machineObservation = serializers.CharField(source="machine_observation")
     observationDatetime = serializers.DateTimeField(
         source="observation_datetime"
-    )  # Add this
+    )
     depthMin = serializers.FloatField(
         source="depth_min", allow_null=True, required=False
     )
@@ -133,12 +131,11 @@ class MapCuratedObservationSerializer(GeoFeatureModelSerializer):
     sex = serializers.CharField(allow_null=True, required=False)
     username = serializers.CharField(
         source="user.username", read_only=True, allow_null=True
-    )  # ADD THIS LINE
+    )
 
     class Meta:
         model = CuratedObservation
         geo_field = "location"
-        # The fields here must match the new camelCase fields you're defining
         fields = (
             "id",
             "speciesName",
@@ -146,6 +143,7 @@ class MapCuratedObservationSerializer(GeoFeatureModelSerializer):
             "location",
             "observationDatetime",
             "locationName",
+            "machineObservation",
             "source",
             "image",
             "depthMin",
@@ -169,14 +167,13 @@ class MapCuratedObservationSerializer(GeoFeatureModelSerializer):
 class MapObservationSerializer(GeoFeatureModelSerializer):
     source = serializers.SerializerMethodField()
     id = serializers.SerializerMethodField()
-    speciesName = serializers.CharField(source="species_name")  # Add this
-    commonName = serializers.CharField(
-        source="common_name", allow_null=True
-    )  # Add this, with allow_null
-    locationName = serializers.CharField(source="location_name")  # Add this
+    machineObservation = serializers.SerializerMethodField()
+    speciesName = serializers.CharField(source="species_name")
+    commonName = serializers.CharField(source="common_name", allow_null=True)
+    locationName = serializers.CharField(source="location_name")
     observationDatetime = serializers.DateTimeField(
         source="observation_datetime"
-    )  # Add this
+    )
     depthMin = serializers.FloatField(
         source="depth_min", allow_null=True, required=False
     )
@@ -194,14 +191,13 @@ class MapObservationSerializer(GeoFeatureModelSerializer):
     )
     username = serializers.CharField(
         source="user.username", read_only=True, allow_null=True
-    )  # ADD THIS LINE
+    )
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
     updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
 
     class Meta:
         model = Observation
         geo_field = "location"
-        # The fields here must match the new camelCase fields you're defining
         fields = (
             "id",
             "speciesName",
@@ -209,6 +205,7 @@ class MapObservationSerializer(GeoFeatureModelSerializer):
             "location",
             "observationDatetime",
             "locationName",
+            "machineObservation",
             "source",
             "image",
             "depthMin",
@@ -231,6 +228,5 @@ class MapObservationSerializer(GeoFeatureModelSerializer):
     def get_id(self, obj):
         return f"user-{obj.id}"
 
-
-# Optionally, you could define your own MapObservationSerializer here later
-# For now, just use ObservationGeoSerializer for map results.
+    def get_machineObservation(self, obj):
+        return "User Observation"

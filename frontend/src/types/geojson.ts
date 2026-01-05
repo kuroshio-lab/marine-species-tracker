@@ -4,6 +4,7 @@ export interface GeoJsonFeatureProperties {
   commonName?: string;
   observationDatetime: string;
   locationName: string;
+  machineObservation: string;
   source: "user" | "obis" | "other";
 
   depthMin: number | null;
