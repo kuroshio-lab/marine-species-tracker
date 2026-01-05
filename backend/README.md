@@ -106,44 +106,49 @@ You can run the ETL process manually from your terminal. The command executes in
     Fetches a default number of pages (configurable in settings as `OBIS_DEFAULT_FETCH_PAGES`) for the last month.
 
 
-    docker-compose exec backend python manage.py refresh_obis_data --mode incremental
-        *   To specify a custom date range (YYYY-MM-DD) and/or a maximum number of pages:
+        docker-compose exec backend python manage.py refresh_obis_data --mode incremental
+      *   To specify a custom date range (YYYY-MM-DD) and/or a maximum number of pages:
 
         docker-compose exec backend python manage.py refresh_obis_data --mode incremental --start-date 2024-01-01 --end-date 2024-01-31 --max-pages 5
-        -   **Run Full Refresh (all data, dynamically paginated):**
+-   **Run Full Refresh (all data, dynamically paginated):**
     This mode will automatically determine the total number of pages from the OBIS API and fetch them sequentially.
 
-
-    docker-compose exec backend python manage.py refresh_obis_data --mode full
-        *   To limit the number of pages fetched for a full refresh (e.g., for testing or partial syncs):
+      *   To limit the number of pages fetched for a full refresh (e.g., for testing or partial syncs):
+        docker-compose exec backend python manage.py refresh_obis_data --mode full
 
         docker-compose exec backend python manage.py refresh_obis_data --mode full --max-pages 1000
-            *   To specify a custom geometry for either mode (e.g., for a specific region):
+      *   To specify a custom geometry for either mode (e.g., for a specific region):
 
         docker-compose exec backend python manage.py refresh_obis_data --mode full --geometry "POLYGON((-70 40, -70 50, -60 50, -60 40, -70 40))"
-        -   **Check the number of records in the database:**
+-   **Check the number of records in the database:**
 
-    docker-compose exec db psql -U postgres -d marine_tracker -c "SELECT COUNT(*) AS total_observations, COUNT(DISTINCT species_name) AS distinct_species_names FROM species_curatedobservation;"
-    ### **EC2 Configuration: Automated Monthly & Bi-Annual Cron Jobs**
+        docker-compose exec db psql -U postgres -d marine_tracker -c "SELECT COUNT(*) AS total_observations, COUNT(DISTINCT species_name) AS distinct_species_names FROM species_curatedobservation;"
+
+### **EC2 Configuration: Automated Monthly & Bi-Annual Cron Jobs**
 
 For production deployment on an EC2 instance, you will configure system-level cron jobs to execute these commands automatically.
 
 1.  **Ensure Docker Compose is set up and running your services on the EC2 instance.**
 2.  **Edit your crontab:**
-    Open the crontab editor:
 
-    crontab -e
-    3.  **Add the following cron entries:**
+  Open the crontab editor:
+  crontab -e
 
-    # Monthly Incremental Refresh (1st day of month, 03:00 UTC)
-    # Fetches data with eventDate in the last month (date range handled by script default).
-    0 3 1 * * cd /path/to/your/marine-species-tracker && docker-compose exec backend python manage.py refresh_obis_data --mode incremental >> /var/log/obis_refresh_monthly.log 2>&1
+3.  **Add the following cron entries:**
 
-    # Bi-Annual Full Refresh (1st day of January and July, 04:00 UTC)
-    # Fetches ALL data (global geometry, dynamically paginated).
-    0 4 1 1,7 * cd /path/to/your/marine-species-tracker && docker-compose exec backend python manage.py refresh_obis_data --mode full >> /var/log/obis_refresh_biannual.log 2>&1
-        *   **`/path/to/your/marine-species-tracker`**: Replace this with the actual absolute path to your project's root directory on the EC2 instance (where `docker-compose.yml` is located).
-    *   **Log Files**: `>> /var/log/obis_refresh_monthly.log 2>&1` redirects all output to a log file, which is crucial for monitoring and troubleshooting cron jobs.
+  Monthly Incremental Refresh (1st day of month, 03:00 UTC)
+  Fetches data with eventDate in the last month (date range handled by script default).
+  ```sh
+  0 3 1 * * cd /path/to/your/marine-species-tracker && docker-compose exec backend python manage.py refresh_obis_data --mode incremental >> /var/log/obis_refresh_monthly.log 2>&1
+  ```
+
+  Bi-Annual Full Refresh (1st day of January and July, 04:00 UTC)
+  Fetches ALL data (global geometry, dynamically paginated).
+  ```sh
+  0 4 1 1,7 * cd /path/to/your/marine-species-tracker && docker-compose exec backend python manage.py refresh_obis_data --mode full >> /var/log/obis_refresh_biannual.log 2>&1
+  ```
+  *   **`/path/to/your/marine-species-tracker`**: Replace this with the actual absolute path to your project's root directory on the EC2 instance (where `docker-compose.yml` is located).
+  *   **Log Files**: `>> /var/log/obis_refresh_monthly.log 2>&1` redirects all output to a log file, which is crucial for monitoring and troubleshooting cron jobs.
 
 ---
 
