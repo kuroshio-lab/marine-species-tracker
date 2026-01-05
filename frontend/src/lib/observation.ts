@@ -18,6 +18,7 @@ export async function fetchUserObservations(): Promise<Observation[]> {
       userId: feature.properties.userId,
       username: feature.properties.username ?? null,
       speciesName: feature.properties.speciesName,
+      machineObservation: feature.properties.machineObservation ?? null,
       commonName: feature.properties.commonName ?? null,
       location: feature.geometry,
       observationDatetime: feature.properties.observationDatetime,
@@ -115,6 +116,10 @@ interface FetchMapObservationsParams {
   radius?: number;
   limit?: number;
   offset?: number;
+  speciesName?: string;
+  commonName?: string;
+  minDate?: string;
+  maxDate?: string;
 }
 
 export async function fetchMapObservations(
@@ -131,6 +136,14 @@ export async function fetchMapObservations(
         query.append("limit", params.limit.toString());
       if (params.offset !== undefined)
         query.append("offset", params.offset.toString());
+      if (params.speciesName !== undefined)
+        query.append("species_name", params.speciesName);
+      if (params.commonName !== undefined)
+        query.append("common_name", params.commonName);
+      if (params.minDate !== undefined)
+        query.append("min_date", params.minDate);
+      if (params.maxDate !== undefined)
+        query.append("max_date", params.maxDate);
     }
 
     // The map endpoint returns GeoJsonFeatureCollection directly, not PaginatedGeoJsonFeatures

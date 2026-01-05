@@ -23,6 +23,10 @@ interface MapComponentProps {
   zIndex?: number;
   zoomTrigger: number;
   mapRefreshTrigger: number;
+  filterSpeciesName: string | null;
+  filterCommonName: string | null;
+  filterMinDate: string | null;
+  filterMaxDate: string | null;
 }
 
 const externalIcon = L.divIcon({
@@ -54,6 +58,10 @@ export default function MapComponent({
   zIndex,
   zoomTrigger,
   mapRefreshTrigger,
+  filterSpeciesName,
+  filterCommonName,
+  filterMinDate,
+  filterMaxDate,
 }: MapComponentProps) {
   const defaultPosition: [number, number] = [0, 0];
   const [allMapObservations, setAllMapObservations] = useState<
@@ -120,6 +128,10 @@ export default function MapComponent({
           radius?: number;
           limit: number;
           offset: number;
+          speciesName?: string;
+          commonName?: string;
+          minDate?: string;
+          maxDate?: string;
         } = {
           lat: center.lat,
           lng: center.lng,
@@ -130,6 +142,10 @@ export default function MapComponent({
         if (currentRadius !== undefined) {
           params.radius = currentRadius;
         }
+        if (filterSpeciesName) params.speciesName = filterSpeciesName;
+        if (filterCommonName) params.commonName = filterCommonName;
+        if (filterMinDate) params.minDate = filterMinDate;
+        if (filterMaxDate) params.maxDate = filterMaxDate;
 
         const data = await fetchMapObservations(params);
 
@@ -147,7 +163,13 @@ export default function MapComponent({
         isLoadingRef.current = false;
       }
     },
-    [calculateRadius],
+    [
+      calculateRadius,
+      filterSpeciesName,
+      filterCommonName,
+      filterMinDate,
+      filterMaxDate,
+    ],
   );
 
   useEffect(() => {
@@ -158,7 +180,13 @@ export default function MapComponent({
     }, 200);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapRefreshTrigger]);
+  }, [
+    mapRefreshTrigger,
+    filterSpeciesName,
+    filterCommonName,
+    filterMinDate,
+    filterMaxDate,
+  ]);
 
   useEffect(() => {
     if (mapRef.current && selectedObservation) {
@@ -173,7 +201,7 @@ export default function MapComponent({
     }
     return () => {};
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedObservation, zoomTrigger]);
+  }, [selectedObservation, zoomTrigger, loadAllMapObservations]);
 
   // Hook to handle map events for dynamic loading with debouncing
   function MapEventsHandler() {
@@ -461,6 +489,8 @@ export default function MapComponent({
                       observationDatetime:
                         feature.properties.observationDatetime,
                       locationName: feature.properties.locationName ?? null,
+                      machineObservation:
+                        feature.properties.machineObservation ?? null,
                       source: feature.properties.source,
                       image: feature.properties.image ?? null,
                       depthMin: feature.properties.depthMin ?? null,

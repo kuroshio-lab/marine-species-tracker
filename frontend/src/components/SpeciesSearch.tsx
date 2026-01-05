@@ -13,6 +13,7 @@ interface SpeciesSearchProps {
   disabled?: boolean;
   placeholder?: string;
   error?: boolean;
+  id?: string;
 }
 
 export default function SpeciesSearch({
@@ -22,6 +23,7 @@ export default function SpeciesSearch({
   disabled = false,
   placeholder = "Search for species...",
   error = false,
+  id,
 }: SpeciesSearchProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [results, setResults] = useState<SpeciesSearchResult[]>([]);
@@ -177,6 +179,7 @@ export default function SpeciesSearch({
         disabled={disabled}
         placeholder={placeholder}
         className={cn(error && "border-red-500")}
+        id={id}
       />
       {isOpen && (
         <div className="absolute z-[9999] mt-1 w-full rounded-md border bg-white shadow-lg max-h-60 overflow-auto">

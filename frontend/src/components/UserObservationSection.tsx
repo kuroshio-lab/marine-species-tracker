@@ -19,6 +19,10 @@ import { Button } from "./ui/button";
 
 interface UserObservationSectionProps {
   className?: string;
+  filterSpeciesName: string | null;
+  filterCommonName: string | null;
+  filterMinDate: string | null;
+  filterMaxDate: string | null;
 }
 
 const DynamicMapComponent = dynamic(() => import("./MapComponent"), {
@@ -56,9 +60,15 @@ const renderObservationListContent = (
   ));
 };
 
-function UserObservationSection({ className }: UserObservationSectionProps) {
+function UserObservationSection({
+  className,
+  filterSpeciesName,
+  filterCommonName,
+  filterMinDate,
+  filterMaxDate,
+}: UserObservationSectionProps) {
   const { user, loading: isUserLoading } = useUser();
-  const [observations, setObservations] = useState<Observation[]>([]); // This state holds the observations for both the list and the map
+  const [observations, setObservations] = useState<Observation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedObservation, setSelectedObservation] =
@@ -197,6 +207,10 @@ function UserObservationSection({ className }: UserObservationSectionProps) {
             zIndex={isModalOpen ? 0 : 1}
             zoomTrigger={zoomTrigger}
             mapRefreshTrigger={mapRefreshTrigger}
+            filterSpeciesName={filterSpeciesName}
+            filterCommonName={filterCommonName}
+            filterMinDate={filterMinDate}
+            filterMaxDate={filterMaxDate}
           />
           <div
             className="absolute top-4 right-4 z-[1000] p-2 pointer-events-auto"

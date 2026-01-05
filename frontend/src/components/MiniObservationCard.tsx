@@ -46,11 +46,11 @@ function MiniObservationCard({ observation }: MiniObservationCardProps) {
       <div className="space-y-1 text-[11px] leading-tight">
         {isUser && observation.username && (
           <p className="font-semibold text-brand-primary-700">
-            👤 {observation.username}
+            👤 Spotted by: {observation.username}
           </p>
         )}
         <p>
-          <strong>Loc:</strong> {observation.locationName}
+          <strong>Type:</strong> {observation.machineObservation}
         </p>
         <p>
           <strong>Date:</strong>{" "}

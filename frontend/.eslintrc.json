@@ -34,6 +34,14 @@
       1,
       { "extensions": [".js", ".jsx", ".ts", ".tsx"] }
     ],
+    "jsx-a11y/label-has-associated-control": [
+      "error",
+      {
+        "controlComponents": ["SpeciesSearch", "Input"],
+        "assert": "either",
+        "depth": 3
+      }
+    ],
     "import/extensions": [
       "error",
       "ignorePackages",
@@ -70,7 +78,7 @@
         "rotation",
         "position",
         "scale",
-        "attach" // Common for R3F, though not in your current errors
+        "attach"
       ]
     }]
   },

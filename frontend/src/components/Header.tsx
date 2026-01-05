@@ -1,20 +1,46 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
 import { useUser } from "./UserProvider";
 import { Button } from "./ui/button";
+import FilterModal from "./FilterModal";
 
-export default function Header() {
+interface HeaderProps {
+  onApplyFilters: (filters: {
+    speciesName: string | null;
+    commonName: string | null;
+    minDate: string | null;
+    maxDate: string | null;
+  }) => void;
+  initialFilters: {
+    speciesName: string | null;
+    commonName: string | null;
+    minDate: string | null;
+    maxDate: string | null;
+  };
+}
+export default function Header({
+  onApplyFilters,
+  initialFilters,
+}: HeaderProps) {
   const { user, loading, logout } = useUser();
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+
+  // The handleApplyFilters function now directly calls the prop onApplyFilters
+  const handleApplyFiltersAndCloseModal = (filters: {
+    speciesName: string | null;
+    commonName: string | null;
+    minDate: string | null;
+    maxDate: string | null;
+  }) => {
+    onApplyFilters(filters);
+    setIsFilterModalOpen(false); // Close the modal after applying filters
+  };
 
   const handleExport = () => {
     // eslint-disable-next-line no-alert
     alert("Export functionality will be implemented later.");
-  };
-
-  const handleAllObservations = () => {
-    // eslint-disable-next-line no-alert
-    alert("All Observations functionality will be implemented later.");
   };
 
   return (
@@ -87,9 +113,9 @@ export default function Header() {
                 Export
               </Button>
 
-              {/* ALL OBSERVATIONS */}
+              {/* OPEN FILTER MODAL BUTTON */}
               <Button
-                onClick={handleAllObservations}
+                onClick={() => setIsFilterModalOpen(true)}
                 type="button"
                 variant="actions"
                 className="px-3 py-1.5 text-sm"
@@ -108,7 +134,7 @@ export default function Header() {
                     d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
                   />
                 </svg>
-                All Observations
+                Filters
               </Button>
 
               {/* SIGN OUT */}
@@ -140,6 +166,13 @@ export default function Header() {
           </div>
         </div>
       </nav>
+      {/* Filter Modal */}
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        onApplyFilters={handleApplyFiltersAndCloseModal} // Use the new handler
+        initialFilters={initialFilters} // Pass initialFilters from props
+      />
     </header>
   );
 }

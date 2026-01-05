@@ -9,6 +9,7 @@ export interface Observation {
   };
   observationDatetime: string;
   locationName: string;
+  machineObservation: string;
   depthMin: number | null;
   depthMax: number | null;
   bathymetry: number | null;
