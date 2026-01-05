@@ -6,6 +6,7 @@ Empower divers, biologists, and hobbyists to log, explore, and contribute to mar
 
 The Marine Species Tracker is a full-stack application designed to facilitate the collection, management, and visualization of marine species observation data. It consists of a robust Django backend, a dynamic Next.js frontend, and a cost-effective AWS infrastructure for deployment.
 
+```mermaid
 graph TD
     subgraph Client_Layer [User Interface]
         User((User Browser))
@@ -38,6 +39,7 @@ graph TD
     Backend -.->|Send Emails| SES
     Backend -.->|ETL Sync| OBIS
     Backend -.->|Enrich Data| WoRMS
+```
 
 ## 🏗️ Architecture & Tech Stack
 
@@ -71,6 +73,7 @@ The infrastructure is designed for cost-effectiveness, reliability, and ease of 
 *   **Security & Monitoring**: Features Nginx with **Let's Encrypt SSL** for HTTPS, security groups, IAM roles, AWS Secrets Manager for credentials, and CloudWatch for monitoring and alarms.
 *   **Automated Tasks**: Includes cron jobs for automated ETL processes, keeping external species data up-to-date.
 
+```mermaid
 graph LR
     subgraph Public_Internet [Internet]
         DNS[Route53 DNS]
@@ -97,7 +100,10 @@ graph LR
     SSL -.->|Cert Renewal| Nginx
     Nginx --> Frontend
     Nginx --> Backend
-    Backend -->|PostGIS :5432| RDS*   **Cloud Provider**: Deployed on **AWS** using a single EC2 instance for both frontend and backend Docker containers.
+    Backend -->|PostGIS :5432| RDS
+```
+
+**Cloud Provider**: Deployed on **AWS** using a single EC2 instance for both frontend and backend Docker containers.
 
 ## 🚀 Quick Start (Local Development)
 
@@ -127,7 +133,9 @@ To get the Marine Species Tracker up and running locally, you'll primarily use D
 
 All Django commands should be executed within the backend container:
 docker-compose exec backend python manage.py <command>
-# Example: docker-compose exec backend pytest### Accessing Databases
+*  **Example**: docker-compose exec backend pytest
+
+### Accessing Databases
 
 *   **Django Admin:** [http://localhost:8000/admin](http://localhost:8000/admin)
 *   **Postgres Shell (psql):**
@@ -135,12 +143,14 @@ docker-compose exec backend python manage.py <command>
     docker-compose exec db psql -U postgres -d marine_tracker
 
 ## 📁 Project Structure
-    marine-species-tracker/
+```
+marine-species-tracker/
 ├── backend/          # Django REST API (Python)
 ├── frontend/         # Next.js application (TypeScript/React)
 ├── infra/            # Terraform configurations and deployment scripts (AWS)
 ├── docker-compose.yml # Orchestrates local development services
 └── README.md         # This overview
+```
 
 ## 🤝 Contributing
 1.  Fork the repository
