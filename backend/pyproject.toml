@@ -26,6 +26,9 @@ sentry-sdk = "1.39.2"
 djangorestframework-gis = "^1.2.0"
 drf-yasg = "^1.21.11"
 isort = "^7.0.0"
+pygbif = "^0.6.6"
+python-dateutil = "^2.9.0.post0"
+pytz = "^2025.2"
 
 
 [tool.poetry.group.dev.dependencies]

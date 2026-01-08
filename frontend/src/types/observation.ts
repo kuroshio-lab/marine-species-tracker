@@ -1,6 +1,7 @@
 export interface Observation {
   id: number;
-  userId: number;
+  userId: number | null;
+  occurrenceId?: string | null;
   speciesName: string;
   commonName: string | null;
   location: {
@@ -18,7 +19,7 @@ export interface Observation {
   notes: string | null;
   image: string | null;
   validated: "pending" | "validated" | "rejected";
-  source: "user" | "obis" | "other";
+  source: "user" | "obis" | "GBIF" | "BOTH" | "other";
   sex: "male" | "female" | "unknown" | null;
   createdAt: string;
   updatedAt: string;

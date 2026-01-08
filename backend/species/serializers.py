@@ -24,7 +24,6 @@ class CuratedObservationSerializer(GeoFeatureModelSerializer):
             "visibility",
             "notes",
             "image",
-            "user",
-            "raw_data",
+            "dataset_name",
         )
         read_only_fields = fields
