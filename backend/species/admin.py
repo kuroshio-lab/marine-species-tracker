@@ -9,7 +9,7 @@ class CuratedObservationAdmin(admin.ModelAdmin):
         "id",
         "species_name",
         "common_name",
-        "obis_id",
+        "occurrence_id",
         "observation_date",
         "observation_datetime",
         "location",
@@ -25,7 +25,6 @@ class CuratedObservationAdmin(admin.ModelAdmin):
         "notes",
         "sex",
         "image",
-        "user",
     )
     list_filter = (
         "source",
@@ -40,13 +39,13 @@ class CuratedObservationAdmin(admin.ModelAdmin):
         "common_name",
         "location_name",
         "notes",
-        "obis_id",
+        "occurrence_id",
     )
     readonly_fields = (
         "id",
         "species_name",
         "common_name",
-        "obis_id",
+        "occurrence_id",
         "observation_date",
         "observation_datetime",
         "location",
@@ -62,6 +61,5 @@ class CuratedObservationAdmin(admin.ModelAdmin):
         "notes",
         "sex",
         "image",
-        "user",
-        "raw_data",
+        "dataset_name",
     )

@@ -1,3 +1,4 @@
+# species/tasks/obis_etl.py
 import logging
 import time
 
@@ -39,13 +40,11 @@ def fetch_and_store_obis_data(
     geometry_wkt, taxonid=None, page=0, start_date=None, end_date=None
 ):
     """
-    Function to fetch a batch of OBIS data, enrich it, and store in the DB.
-    :param start_date: Date string (YYYY-MM-DD) for fetching records.
-    :param end_date: Date string (YYYY-MM-DD) for fetching records.
+    Fetch OBIS data and store with occurrence_id for deduplication.
     """
     logger.info(
-        f"Starting OBIS ETL for geometry: {geometry_wkt}, taxonid: {taxonid},"
-        f" page: {page}, start_date: {start_date}, end_date: {end_date}"
+        f"Starting OBIS ETL for geometry: {geometry_wkt}, taxonid: {taxonid}, "
+        f"page: {page}, start_date: {start_date}, end_date: {end_date}"
     )
 
     try:
@@ -58,11 +57,7 @@ def fetch_and_store_obis_data(
         )
 
         if not obis_records:
-            logger.info(
-                f"No OBIS records found for geometry: {geometry_wkt}, taxonid:"
-                f" {taxonid}, page: {page}, start_date: {start_date},"
-                f" end_date: {end_date}"
-            )
+            logger.info("No OBIS records found")
             return {
                 "status": "completed",
                 "records_processed": 0,
@@ -71,9 +66,11 @@ def fetch_and_store_obis_data(
             }
 
         new_records_count = 0
+        skipped_count = 0
 
-        existing_obis_ids = set(
-            CuratedObservation.objects.values_list("obis_id", flat=True)
+        # Get existing occurrence_ids for dedup
+        existing_occurrence_ids = set(
+            CuratedObservation.objects.values_list("occurrence_id", flat=True)
         )
 
         with transaction.atomic():
@@ -81,52 +78,55 @@ def fetch_and_store_obis_data(
                 obis_id = obs.get("id")
                 if not obis_id:
                     logger.warning(
-                        "OBIS record missing 'id' field, skipping entire"
-                        f" record due to missing key: {obs}"
+                        f"OBIS record missing 'id' field, skipping: {obs}"
                     )
                     continue
 
-                if obis_id in existing_obis_ids:
+                # Generate occurrence_id (OBIS uses 'id' as occurrenceID)
+                occurrence_id = obs.get("occurrenceID") or f"OBIS:{obis_id}"
+
+                # Deduplication check
+                if occurrence_id in existing_occurrence_ids:
                     logger.debug(
-                        f"Skipping duplicate OBIS record with ID: {obis_id}"
+                        f"Skipping duplicate occurrence_id: {occurrence_id}"
                     )
+                    skipped_count += 1
                     continue
 
+                # Coordinates required
                 lon = obs.get("decimalLongitude")
                 lat = obs.get("decimalLatitude")
                 if lon is None or lat is None:
                     logger.warning(
                         f"OBIS record {obis_id} missing coordinates, skipping"
-                        " entire record."
                     )
                     continue
 
-                common_name = get_harmonized_common_name(obs, worms_client)
-
+                # Parse date
                 event_date_str = obs.get("eventDate")
                 observation_datetime, observation_date = parse_obis_event_date(
                     obis_id, event_date_str
                 )
+                if not observation_date:
+                    logger.warning(
+                        f"OBIS record {obis_id} missing valid date, skipping"
+                    )
+                    continue
 
+                # Common name enrichment
+                common_name = get_harmonized_common_name(obs, worms_client)
+
+                # Machine Observation
                 machine_observation_raw = obs.get("basisOfRecord")
                 machine_observation = clean_string_to_capital_capital(
                     machine_observation_raw
                 )
 
-                # Call normalize_obis_depth to get the three depth fields
+                # Depth normalization
                 depth_min, depth_max, bathymetry = normalize_obis_depth(obs)
 
-                temperature_raw = obs.get("sst")
-                temperature = to_float(
-                    temperature_raw
-                )  # Use to_float for robustness
-                if (
-                    temperature is None and temperature_raw is not None
-                ):  # Log only if value was present but invalid
-                    logger.warning(
-                        f"OBIS record {obis_id}: Invalid 'sst' value"
-                        f" '{temperature_raw}', temperature set to None."
-                    )
+                # Temperature
+                temperature = to_float(obs.get("sst"))
 
                 visibility = None
                 notes = (
@@ -134,16 +134,15 @@ def fetch_and_store_obis_data(
                     f" {obs.get('datasetName') or 'Unknown'}"
                 )
                 image = None
-                user = None
                 validated = "validated"
 
-                # New 'sex' field processing
-                raw_sex = obs.get("sex")
-                sex = standardize_sex(raw_sex)
+                # Sex standardization
+                sex = standardize_sex(obs.get("sex"))
 
+                # Save to DB
                 try:
                     CuratedObservation.objects.create(
-                        obis_id=obis_id,
+                        occurrence_id=occurrence_id,
                         species_name=obs.get("scientificName")
                         or "Unknown species",
                         common_name=common_name,
@@ -153,7 +152,6 @@ def fetch_and_store_obis_data(
                         location_name=obs.get("datasetName") or "OBIS record",
                         machine_observation=machine_observation,
                         validated=validated,
-                        source="OBIS",
                         depth_min=depth_min,
                         depth_max=depth_max,
                         bathymetry=bathymetry,
@@ -161,44 +159,45 @@ def fetch_and_store_obis_data(
                         visibility=visibility,
                         notes=notes,
                         image=image,
-                        user=user,
                         sex=sex,
-                        raw_data=obs,
+                        source="OBIS",
+                        dataset_name=obs.get("datasetName", "")[:255],
                     )
                     new_records_count += 1
+                    existing_occurrence_ids.add(
+                        occurrence_id
+                    )  # Update in-memory set
                     logger.debug(
-                        f"Saved new record: {obis_id} -"
+                        f"Saved OBIS record: {occurrence_id} -"
                         f" {obs.get('scientificName')}"
                     )
+
                 except Exception as e:
                     logger.error(
-                        f"Failed to save OBIS record {obis_id}: {e}",
+                        f"Failed to save OBIS record {occurrence_id}: {e}",
                         exc_info=True,
-                    )  # Added exc_info=True for full traceback in logs
+                    )
                     raise
 
         logger.info(
-            f"Finished OBIS ETL for page {page}. Processed"
-            f" {len(obis_records)} records, added {new_records_count} new."
+            f"Finished OBIS ETL for page {page}. Processed:"
+            f" {len(obis_records)}, New: {new_records_count}, Skipped:"
+            f" {skipped_count}"
         )
+
         return {
             "status": "completed",
             "records_processed": len(obis_records),
             "new_records": new_records_count,
+            "duplicates": skipped_count,
             "page": page,
         }
 
     except Exception as e:
-        logger.error(
-            "Unhandled error in fetch_and_store_obis_data for geometry"
-            f" {geometry_wkt}, page {page}, start_date: {start_date},"
-            f" end_date: {end_date}: {e}",
-            exc_info=True,
-        )
+        logger.error(f"Unhandled error in OBIS ETL: {e}", exc_info=True)
         raise
 
 
-# The trigger_full_obis_refresh function follows here, no changes needed for its logic.
 def trigger_full_obis_refresh(
     geometry_wkt,
     taxonid=None,
@@ -207,28 +206,16 @@ def trigger_full_obis_refresh(
     max_pages=None,
 ):
     """
-    Function to trigger a full or date-range refresh, fetching multiple pages dynamically.
-    :param start_date: Date string (YYYY-MM-DD) for filtering. If None, no start date filter applied.
-    :param end_date: Date string (YYYY-MM-DD) for filtering. If None, no end date filter applied.
-    :param max_pages: Optional maximum number of pages to fetch for a full refresh.
-                      Useful for testing or if full refresh is too large.
+    Full or date-range OBIS refresh with pagination.
     """
-    if start_date or end_date:
-        refresh_type = "date-range incremental"
-    else:
-        refresh_type = "full"
+    refresh_type = "incremental" if (start_date or end_date) else "full"
     print(
-        f"Triggering {refresh_type} OBIS refresh for geometry: {geometry_wkt},"
-        f" taxonid: {taxonid}, start_date: {start_date}, end_date: {end_date}"
+        f"Triggering {refresh_type} OBIS refresh for geometry: {geometry_wkt}"
     )
 
-    total_records = 0
-    total_pages = 0
-    # current_page = 0
     page_size = obis_client.default_size
 
-    # First, make a call to get the total number of records
-    # We fetch one record to get the 'total' count from the API response
+    # Get total record count
     initial_records, total_records = obis_client.fetch_occurrences(
         geometry=geometry_wkt,
         taxonid=taxonid,
@@ -238,24 +225,15 @@ def trigger_full_obis_refresh(
         end_date=end_date,
     )
 
-    if total_records > 0:
-        total_pages = (
-            total_records + page_size - 1
-        ) // page_size  # Ceiling division
-        print(
-            f"Total records to fetch: {total_records}, estimated pages:"
-            f" {total_pages}"
-        )
-    else:
-        print("No records found for the given criteria. Exiting refresh.")
+    if total_records == 0:
+        print("No records found. Exiting.")
         return
 
-    # If max_pages is specified, limit the total_pages
+    total_pages = (total_records + page_size - 1) // page_size
+    print(f"Total records: {total_records}, estimated pages: {total_pages}")
+
     if max_pages is not None and max_pages < total_pages:
-        print(
-            f"Limiting refresh to {max_pages} pages (out of"
-            f" {total_pages} total pages)."
-        )
+        print(f"Limiting to {max_pages} pages")
         total_pages = max_pages
 
     for page_num in range(total_pages):
@@ -267,9 +245,6 @@ def trigger_full_obis_refresh(
             start_date=start_date,
             end_date=end_date,
         )
-        time.sleep(1)  # Be respectful to the API, add a delay
+        time.sleep(1)  # API rate limiting
 
-    print(
-        f"Finished {refresh_type} OBIS refresh tasks. Total records processed:"
-        f" {total_records}."
-    )
+    print(f"Finished {refresh_type} OBIS refresh.")

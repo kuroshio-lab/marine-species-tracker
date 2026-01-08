@@ -1,12 +1,12 @@
 export interface GeoJsonFeatureProperties {
   id: number | string;
+  occurrenceId?: string | null;
   speciesName: string;
   commonName?: string;
   observationDatetime: string;
   locationName: string;
   machineObservation: string;
-  source: "user" | "obis" | "other";
-
+  source: "user" | "obis" | "GBIF" | "BOTH" | "other";
   depthMin: number | null;
   depthMax: number | null;
   bathymetry: number | null;
@@ -16,7 +16,7 @@ export interface GeoJsonFeatureProperties {
   image: string | null;
   validated: "pending" | "validated" | "rejected";
   sex: "male" | "female" | "unknown" | null;
-  userId: number;
+  userId?: number;
   created_at: string;
   updated_at: string;
   username?: string | null;

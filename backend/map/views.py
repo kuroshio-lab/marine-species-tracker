@@ -135,10 +135,10 @@ def map_observations(request):
 
         # Apply offset and limit to the querysets
         user_observations_list = list(
-            user_observations_queryset[offset: offset + user_limit]
+            user_observations_queryset[offset : offset + user_limit]
         )
         curated_species_list = list(
-            curated_species_queryset[offset: offset + curated_limit]
+            curated_species_queryset[offset : offset + curated_limit]
         )
 
         # Serialize

@@ -78,8 +78,8 @@ class CuratedObservationGeoSerializer(GeoFeatureModelSerializer):
     notes = serializers.CharField(allow_null=True, required=False)
     image = serializers.URLField(allow_null=True, required=False)
     sex = serializers.CharField(allow_null=True, required=False)
-    userId = serializers.CharField(
-        source="user", allow_null=True, required=False
+    occurrenceId = serializers.CharField(
+        source="occurrence_id", allow_null=True, required=False
     )
 
     class Meta:
@@ -103,12 +103,10 @@ class CuratedObservationGeoSerializer(GeoFeatureModelSerializer):
             "notes",
             "sex",
             "validated",
-            "userId",
         )
 
 
 class MapCuratedObservationSerializer(GeoFeatureModelSerializer):
-    source = serializers.SerializerMethodField()
     id = serializers.SerializerMethodField()
     speciesName = serializers.CharField(source="species_name")
     commonName = serializers.CharField(source="common_name", allow_null=True)
@@ -129,8 +127,8 @@ class MapCuratedObservationSerializer(GeoFeatureModelSerializer):
     notes = serializers.CharField(allow_null=True, required=False)
     image = serializers.URLField(allow_null=True, required=False)
     sex = serializers.CharField(allow_null=True, required=False)
-    username = serializers.CharField(
-        source="user.username", read_only=True, allow_null=True
+    occurrenceId = serializers.CharField(
+        source="occurrence_id", allow_null=True, required=False
     )
 
     class Meta:
@@ -145,6 +143,7 @@ class MapCuratedObservationSerializer(GeoFeatureModelSerializer):
             "locationName",
             "machineObservation",
             "source",
+            "source",
             "image",
             "depthMin",
             "depthMax",
@@ -154,14 +153,11 @@ class MapCuratedObservationSerializer(GeoFeatureModelSerializer):
             "notes",
             "sex",
             "validated",
-            "username",
+            "occurrenceId",
         )
 
-    def get_source(self, obj):
-        return "obis"
-
     def get_id(self, obj):
-        return f"obis-{obj.id}"
+        return f"external-{obj.id}"
 
 
 class MapObservationSerializer(GeoFeatureModelSerializer):
