@@ -150,3 +150,41 @@ def standardize_sex(sex_value):
         return "female"
     else:
         return "unknown"
+
+
+def clean_scientific_name_for_worms_lookup(scientific_name):
+    """
+    Cleans a scientific name string by removing text after the first
+    occurrence of a comma (',') or an opening parenthesis '('.
+
+    Examples:
+    - "Dendronotus elegans A.E.Verrill, 1880" -> "Dendronotus elegans"
+    - "Funiculina quadrangularis (Pallas, 1766)" -> "Funiculina quadrangularis"
+    - "Virgularia mirabilis" -> "Virgularia mirabilis"
+    - None -> None
+
+    Args:
+        scientific_name (str): The scientific name to clean.
+
+    Returns:
+        str or None: The cleaned scientific name, or None if input was not a string.
+    """
+    if not isinstance(scientific_name, str):
+        return scientific_name
+
+    # Find the index of the first comma or opening parenthesis
+    comma_idx = scientific_name.find(",")
+    paren_idx = scientific_name.find("(")
+
+    split_at_idx = len(scientific_name)
+
+    if comma_idx != -1 and paren_idx != -1:
+        split_at_idx = min(comma_idx, paren_idx)
+    elif comma_idx != -1:
+        split_at_idx = comma_idx
+    elif paren_idx != -1:
+        split_at_idx = paren_idx
+
+    cleaned_name = scientific_name[:split_at_idx].strip()
+
+    return cleaned_name if cleaned_name else None

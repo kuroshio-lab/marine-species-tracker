@@ -1,8 +1,9 @@
 # species/models.py
 from django.contrib.gis.db import models
+from core.models import TimeStampedModel
 
 
-class CuratedObservation(models.Model):
+class CuratedObservation(TimeStampedModel, models.Model):
     # Universal identifier for cross-API deduplication (Darwin Core standard)
     occurrence_id = models.CharField(
         max_length=255,
