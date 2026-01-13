@@ -404,7 +404,7 @@ resource "aws_instance" "app" {
   iam_instance_profile   = aws_iam_instance_profile.ec2.name
 
   # User data script for EC2 initialization
-  user_data = templatefile("${path.module}/user-data.sh", {
+  user_data_base64 = base64gzip(templatefile("${path.module}/user-data.sh", {
     db_host                = aws_db_instance.main.address
     db_name                = aws_db_instance.main.db_name
     db_user                = aws_db_instance.main.username
@@ -419,7 +419,7 @@ resource "aws_instance" "app" {
     logging_level          = var.environment == "production" ? "ERROR" : "INFO"
     hosted_zone_id         = data.terraform_remote_state.global.outputs.hosted_zone_id
 
-  })
+  }))
 
   user_data_replace_on_change = false
 
