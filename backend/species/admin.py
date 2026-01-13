@@ -25,6 +25,8 @@ class CuratedObservationAdmin(admin.ModelAdmin):
         "notes",
         "sex",
         "image",
+        "created_at",
+        "updated_at",
     )
     list_filter = (
         "source",
@@ -62,4 +64,6 @@ class CuratedObservationAdmin(admin.ModelAdmin):
         "sex",
         "image",
         "dataset_name",
+        "created_at",
+        "updated_at",
     )

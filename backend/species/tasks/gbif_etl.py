@@ -1,39 +1,42 @@
 # species/tasks/gbif_etl.py
 import logging
-from django.contrib.gis.geos import Point
+from django.contrib.gis.geos import Point as DjangoPoint
 from django.db import transaction
 from species.models import CuratedObservation
 from .gbif_api import GBIFAPIClient
+from .worms_api import WoRMSAPIClient
+from shapely import wkt
+from shapely.geometry import Point as ShapelyPoint
 from .utils.etl_cleaning import (
     standardize_sex,
     parse_date_flexible,
-    get_common_name_from_worms,
     to_float,
+    clean_scientific_name_for_worms_lookup,
 )
 
 logger = logging.getLogger(__name__)
 
 gbif_client = GBIFAPIClient(default_limit=300)
+worms_client = WoRMSAPIClient()
 
+OCEAN_POLYGONS_WKT = {
+    "Arctic_Ocean": "POLYGON((-180 65, 180 65, 180 90, -180 90, -180 65))",
+    "North_Atlantic": "POLYGON((-80 0, -10 0, -10 65, -80 65, -80 0))",
+    "South_Atlantic": "POLYGON((-60 -60, 20 -60, 20 0, -60 0, -60 -60))",
+    "Indian_Ocean": "POLYGON((20 -60, 120 -60, 120 25, 20 25, 20 -60))",
+    "West_Pacific": "POLYGON((120 -60, 180 -60, 180 65, 120 65, 120 -60))",
+    "North_East_Pacific": "POLYGON((-180 0, -80 0, -80 65, -180 65, -180 0))",
+    "South_East_Pacific": (
+        "POLYGON((-180 -60, -67 -60, -75 -50, -72 -40, -70 -30, -70 -20, -80"
+        " -10, -80 0, -180 0, -180 -60))"
+    ),
+    "Southern_Ocean": (
+        "POLYGON((-180 -90, 180 -90, 180 -60, -180 -60, -180 -90))"
+    ),
+}
 
-def passes_quality_check(record):
-    """
-    Hard quality filter: Only accept records with required fields.
-    Returns: (passes: bool, rejection_reason: str)
-    """
-    # Coordinates
-    if not record.get("decimalLatitude") or not record.get("decimalLongitude"):
-        return False, "missing_coordinates"
-
-    # Scientific name
-    if not record.get("scientificName"):
-        return False, "missing_species"
-
-    # Date
-    if not record.get("eventDate"):
-        return False, "missing_date"
-
-    return True, None
+# Cache to avoid redundant API calls during a single process run
+_worms_cache = {}
 
 
 def fetch_and_store_gbif_data(
@@ -43,143 +46,145 @@ def fetch_and_store_gbif_data(
     limit=300,
     offset=0,
     strategy="obis_network",
+    ocean_label=None,
 ):
     """
-    Fetch GBIF occurrences with quality filters and deduplication.
+    Main entry point for management commands. Supports year and enrichment.
     """
-    logger.info(f"Starting GBIF ETL - strategy: {strategy}, offset: {offset}")
+    stats = {
+        "processed": 0,
+        "saved": 0,
+        "rejected": 0,
+        "duplicates": 0,
+        "rejection_reasons": {},
+    }
 
-    try:
-        # Fetch from GBIF
-        gbif_records, total_count = gbif_client.fetch_occurrences(
-            geometry=geometry_wkt,
-            taxon_key=taxon_key,
-            year=year,
-            limit=limit,
-            offset=offset,
-            strategy=strategy,
-        )
+    # Prep spatial filter
+    poly_geom = wkt.loads(geometry_wkt) if geometry_wkt else None
 
-        if not gbif_records:
-            return {"processed": 0, "saved": 0, "rejected": 0, "duplicates": 0}
+    # GBIF API Call
+    search_params = {
+        "limit": limit,
+        "offset": offset,
+        "year": year,
+        "depth": "1,11000",
+    }
+    if taxon_key:
+        search_params["taxonKey"] = taxon_key
+    if geometry_wkt and not poly_geom.bounds:
+        search_params["geometry"] = geometry_wkt
+    elif poly_geom:
+        minx, miny, maxx, maxy = poly_geom.bounds
+        search_params["decimalLatitude"] = f"{miny},{maxy}"
+        search_params["decimalLongitude"] = f"{minx},{maxx}"
 
-        stats = {
-            "processed": len(gbif_records),
-            "saved": 0,
-            "rejected": 0,
-            "duplicates": 0,
-            "rejection_reasons": {},
-        }
+    gbif_records, _ = gbif_client.fetch_occurrences(**search_params)
 
-        # Get existing occurrence_ids for dedup
-        existing_occurrence_ids = set(
-            CuratedObservation.objects.values_list("occurrence_id", flat=True)
-        )
-
-        with transaction.atomic():
-            for record in gbif_records:
-                # Quality check
-                passes, reason = passes_quality_check(record)
-                if not passes:
-                    stats["rejected"] += 1
-                    stats["rejection_reasons"][reason] = (
-                        stats["rejection_reasons"].get(reason, 0) + 1
-                    )
-                    continue
-
-                # Generate occurrence_id
-                gbif_key = record.get("key")
-                occurrence_id = (
-                    record.get("occurrenceID") or f"GBIF:{gbif_key}"
-                )
-
-                # Deduplication
-                if occurrence_id in existing_occurrence_ids:
-                    stats["duplicates"] += 1
-                    logger.debug(f"Skipping duplicate: {occurrence_id}")
-                    continue
-
-                # Parse coordinates
-                try:
-                    lat = float(record["decimalLatitude"])
-                    lon = float(record["decimalLongitude"])
-                    location = Point(lon, lat)
-                except (ValueError, TypeError) as e:
-                    logger.warning(
-                        f"Invalid coordinates for {occurrence_id}: {e}"
-                    )
-                    stats["rejected"] += 1
-                    continue
-
-                # Parse date
-                observation_date = parse_date_flexible(record["eventDate"])
-                if not observation_date:
-                    stats["rejected"] += 1
-                    continue
-
-                # Depth normalization
-                depth_min = to_float(record.get("minimumDepthInMeters"))
-                depth_max = to_float(record.get("maximumDepthInMeters"))
-                bathymetry = to_float(record.get("depth"))
-
-                # If only one depth, use for both
-                if depth_min and not depth_max:
-                    depth_max = depth_min
-                elif depth_max and not depth_min:
-                    depth_min = depth_max
-
-                # Common name from WoRMS
-                common_name = get_common_name_from_worms(
-                    record["scientificName"]
-                )
-
-                visibility = None
-                notes = (
-                    "Imported from GBIF dataset:"
-                    f" {record.get('datasetName') or 'Unknown'}"
-                )
-                image = None
-                validated = "validated"
-
-                # Save to DB
-                try:
-                    CuratedObservation.objects.create(
-                        occurrence_id=occurrence_id,
-                        species_name=record["scientificName"],
-                        common_name=common_name,
-                        observation_date=observation_date,
-                        location=location,
-                        depth_min=depth_min,
-                        depth_max=depth_max,
-                        bathymetry=bathymetry,
-                        temperature=to_float(record.get("waterTemperature")),
-                        sex=standardize_sex(record.get("sex")),
-                        visibility=visibility,
-                        notes=notes,
-                        image=image,
-                        validated=validated,
-                        source="GBIF",
-                        dataset_name=record.get("datasetName", "")[:255],
-                    )
-                    stats["saved"] += 1
-                    existing_occurrence_ids.add(occurrence_id)
-
-                except Exception as e:
-                    logger.error(
-                        f"Failed to save GBIF record {occurrence_id}: {e}",
-                        exc_info=True,
-                    )
-                    raise
-
-        logger.info(
-            f"GBIF ETL complete - Saved: {stats['saved']}, "
-            f"Rejected: {stats['rejected']}, Duplicates: {stats['duplicates']}"
-        )
-        if stats["rejection_reasons"]:
-            logger.info(f"Rejection breakdown: {stats['rejection_reasons']}")
-
+    if not gbif_records:
         return stats
 
-    except Exception as e:
-        logger.error(f"GBIF ETL error: {e}", exc_info=True)
-        raise
+    existing_ids = set(
+        CuratedObservation.objects.values_list("occurrence_id", flat=True)
+    )
+
+    with transaction.atomic():
+        for rec in gbif_records:
+            stats["processed"] += 1
+
+            # 1. Spatial Check (Precise)
+            lon, lat = rec.get("decimalLongitude"), rec.get("decimalLatitude")
+            if lon is None or lat is None:
+                continue
+            if poly_geom and not poly_geom.contains(ShapelyPoint(lon, lat)):
+                continue
+
+            # 2. Deduplication
+            occurrence_id = rec.get("occurrenceID") or f"GBIF:{rec.get('key')}"
+            if occurrence_id in existing_ids:
+                stats["duplicates"] += 1
+                continue
+
+            # 3. WoRMS Enrichment
+            orig_name = rec.get("scientificName")
+            if not orig_name:
+                continue
+
+            lookup_name = clean_scientific_name_for_worms_lookup(orig_name)
+            if lookup_name not in _worms_cache:
+                try:
+                    aphia_id = worms_client.get_aphia_id_from_scientific_name(
+                        lookup_name
+                    )
+                    cleaned_name = (
+                        worms_client.get_scientific_name_by_aphia_id(aphia_id)
+                        if aphia_id
+                        else None
+                    )
+                    # MODIFIED LINE: ONLY take common name from WoRMS
+                    common_name_from_worms = (
+                        worms_client.get_common_name_by_aphia_id(aphia_id)
+                        if aphia_id
+                        else None
+                    )
+
+                    _worms_cache[lookup_name] = {
+                        "cleaned_name": cleaned_name,
+                        "common_name": common_name_from_worms,
+                    }
+                except Exception:
+                    _worms_cache[lookup_name] = {
+                        "cleaned_name": None,
+                        "common_name": None,
+                    }
+
+            worms_data = _worms_cache[lookup_name]
+
+            # Filter: Only save if we got a cleaned name from WoRMS
+            if not worms_data["cleaned_name"]:
+                stats["rejected"] += 1
+                continue
+
+            # 4. Save
+            try:
+                CuratedObservation.objects.create(
+                    occurrence_id=occurrence_id,
+                    species_name=worms_data["cleaned_name"],
+                    common_name=worms_data["common_name"],
+                    observation_date=parse_date_flexible(rec.get("eventDate")),
+                    observation_datetime=rec.get("eventDate"),
+                    location=DjangoPoint(lon, lat),
+                    location_name=rec.get("locality")
+                    or rec.get("waterBody")
+                    or ocean_label
+                    or "GBIF Import",
+                    machine_observation=rec.get("basisOfRecord"),
+                    source="GBIF",
+                    depth_min=to_float(rec.get("depth"))
+                    or to_float(rec.get("minimumDepthInMeters")),
+                    depth_max=to_float(rec.get("depth"))
+                    or to_float(rec.get("maximumDepthInMeters")),
+                    sex=standardize_sex(rec.get("sex")),
+                    dataset_name=rec.get("datasetName", "")[:255],
+                    validated="validated",
+                )
+                stats["saved"] += 1
+                existing_ids.add(occurrence_id)
+            except Exception as e:
+                logger.error(f"Save error {occurrence_id}: {e}")
+
+    return stats
+
+
+def sync_gbif_by_oceans(year=None, limit=200):
+    """
+    Wrapper to run the ETL across all defined oceans.
+    """
+    overall_stats = {"saved": 0, "processed": 0}
+    for name, wkt_str in OCEAN_POLYGONS_WKT.items():
+        logger.info(f"Processing Ocean: {name} (Year: {year})")
+        res = fetch_and_store_gbif_data(
+            geometry_wkt=wkt_str, year=year, limit=limit, ocean_label=name
+        )
+        overall_stats["saved"] += res["saved"]
+        overall_stats["processed"] += res["processed"]
+    return overall_stats
