@@ -477,7 +477,7 @@ EOF
 # 3. Wrapper Script (sync_all_species.sh)
 cat > /opt/species-tracker/scripts/sync_all_species.sh << 'EOF'
 #!/bin/bash
-MODE="${1:-incremental}"
+MODE="$${1:-incremental}"
 if [ "$MODE" = "full" ]; then
     bash /opt/species-tracker/scripts/sync_full_refresh.sh
 else

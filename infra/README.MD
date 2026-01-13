@@ -101,7 +101,7 @@ EC2_IP=$(terraform output -raw instance_public_ip)
 # SSH into EC2
 ssh -i ~/.ssh/species-tracker ubuntu@$EC2_IP
 
-# 1. Start temporary bootstrap Nginx
+# 1. Start temporary bootstrap Nginx on port 80
 sudo docker run --rm -d \
   --name nginx-bootstrap \
   -v species-tracker_certbot-www:/var/www/certbot \
@@ -109,7 +109,8 @@ sudo docker run --rm -d \
   nginx:alpine \
   sh -c "echo 'events {} http { server { listen 80; server_name species.kuroshio-lab.com api.species.kuroshio-lab.com; location /.well-known/acme-challenge/ { root /var/www/certbot; } } }' > /etc/nginx/nginx.conf && nginx -g \"daemon off;\""
 
-# 2. Run Certbot to get certificates
+# 2. Run Certbot to request the certificate
+cd /opt/species-tracker
 sudo docker-compose run --rm --no-deps --entrypoint "certbot" certbot certonly \
     --webroot \
     --webroot-path=/var/www/certbot \
@@ -119,9 +120,8 @@ sudo docker-compose run --rm --no-deps --entrypoint "certbot" certbot certonly \
     -d species.kuroshio-lab.com \
     -d api.species.kuroshio-lab.com
 
-# 3. Stop bootstrap container
+# 3. Stop the bootstrap container
 sudo docker stop nginx-bootstrap
-exit
 ```
 
 ### 5. Deploy Application
