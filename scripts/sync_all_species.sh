@@ -1,57 +1,69 @@
 #!/bin/bash
 # scripts/sync_all_species.sh
 
-set -e  # Exit on error
+set -e
 
-echo "════════════════════════════════════════════════════"
-echo "   🌊 Kuroshio-Lab Species Data Sync Pipeline"
-echo "════════════════════════════════════════════════════"
-echo ""
+# ============================================================
+# USAGE
+# ============================================================
 
-# Configuration
-YEAR="2024,2025"
-GEOMETRY="POLYGON((127.15 26.10, 127.50 26.10, 127.50 26.35, 127.15 26.35, 127.15 26.10))"
+usage() {
+    echo "Usage: $0 [MODE]"
+    echo ""
+    echo "Modes:"
+    echo "  incremental  - Sync recent data only (default)"
+    echo "  full        - Complete database rebuild (deletes all data)"
+    echo ""
+    echo "Examples:"
+    echo "  $0 incremental"
+    echo "  $0 full"
+    echo ""
+    echo "Note: This script must be run from the project root:"
+    echo "  cd /path/to/marine-species-tracker"
+    echo "  ./scripts/sync_all_species.sh incremental"
+    exit 1
+}
 
-# Step 1: Sync OBIS
-echo "📡 Step 1/4: Syncing OBIS data..."
-echo "────────────────────────────────────────────────────"
-python manage.py refresh_obis_data \
-    --mode=incremental \
-    --start-date=2024-01-01 \
-    --end-date=2025-12-31 \
-    --geometry="$GEOMETRY"
+# ============================================================
+# CHECK DOCKER COMPOSE
+# ============================================================
 
-echo ""
-echo "✅ OBIS sync complete"
-echo ""
+if ! command -v docker-compose &> /dev/null; then
+    echo "❌ Error: docker-compose not found"
+    echo "Please install docker-compose first"
+    exit 1
+fi
 
-# Step 2: Sync GBIF (OBIS network)
-echo "📡 Step 2/4: Syncing GBIF data (OBIS network)..."
-echo "────────────────────────────────────────────────────"
-python manage.py sync_gbif_incremental \
-    --year="$YEAR" \
-    --strategy=obis_network \
-    --max-records=50000
+# Check if backend service is running
+if ! docker-compose ps | grep -q "backend.*Up"; then
+    echo "❌ Error: Backend container is not running"
+    echo "Please start your services first:"
+    echo "  docker-compose up -d"
+    exit 1
+fi
 
-echo ""
-echo "✅ GBIF sync complete"
-echo ""
+# ============================================================
+# PARSE ARGUMENTS
+# ============================================================
 
-# Step 3: Deduplicate
-echo "🔄 Step 3/4: Deduplicating observations..."
-echo "────────────────────────────────────────────────────"
-python manage.py deduplicate_observations --prefer=OBIS
+MODE="${1:-incremental}"
 
-echo ""
-echo "✅ Deduplication complete"
-echo ""
+if [ "$MODE" != "incremental" ] && [ "$MODE" != "full" ]; then
+    echo "❌ Error: Invalid mode '$MODE'"
+    echo ""
+    usage
+fi
 
-# Step 4: Show stats
-echo "📊 Step 4/4: Final Statistics"
-echo "────────────────────────────────────────────────────"
-python manage.py species_stats
+# ============================================================
+# EXECUTE APPROPRIATE SCRIPT
+# ============================================================
 
-echo ""
-echo "════════════════════════════════════════════════════"
-echo "   ✅ Sync pipeline complete!"
-echo "════════════════════════════════════════════════════"
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+if [ "$MODE" = "incremental" ]; then
+    echo "🔄 Running INCREMENTAL sync..."
+    bash "$SCRIPT_DIR/sync_incremental.sh"
+else
+    echo "⚠️  Running FULL REFRESH..."
+    bash "$SCRIPT_DIR/sync_full_refresh.sh"
+fi
