@@ -445,26 +445,69 @@ cat > /etc/logrotate.d/docker-containers << 'LOGROTATE'
 LOGROTATE
 
 # =============================================================================
+# Create Sync Scripts
+# =============================================================================
+mkdir -p /opt/species-tracker/scripts
+
+# 1. Incremental Sync Script
+cat > /opt/species-tracker/scripts/sync_incremental.sh << 'EOF'
+#!/bin/bash
+set -e
+echo "🌊 Running Incremental Species Sync..."
+docker-compose exec -T backend python manage.py refresh_obis_data \
+    --mode incremental --start-date "2024-01-01" --end-date "2024-12-31" --max-pages 10
+docker-compose exec -T backend python manage.py sync_gbif_by_oceans --year "2024" --limit 200
+docker-compose exec -T backend python manage.py deduplicate_observations --prefer OBIS
+docker-compose exec -T backend python manage.py species_stats
+EOF
+
+# 2. Full Refresh Script
+cat > /opt/species-tracker/scripts/sync_full_refresh.sh << 'EOF'
+#!/bin/bash
+set -e
+echo "⚠️ Running FULL Species Data Refresh..."
+# Clear data using python snippets (matching your repo logic)
+docker-compose exec -T backend python -c "from species.models import CuratedObservation; CuratedObservation.objects.all().delete()"
+docker-compose exec -T backend python manage.py refresh_obis_data --mode full
+docker-compose exec -T backend python manage.py sync_gbif_by_oceans --year "2024" --limit 500
+docker-compose exec -T backend python manage.py deduplicate_observations --prefer OBIS
+docker-compose exec -T backend python manage.py species_stats
+EOF
+
+# 3. Wrapper Script (sync_all_species.sh)
+cat > /opt/species-tracker/scripts/sync_all_species.sh << 'EOF'
+#!/bin/bash
+MODE="${1:-incremental}"
+if [ "$MODE" = "full" ]; then
+    bash /opt/species-tracker/scripts/sync_full_refresh.sh
+else
+    bash /opt/species-tracker/scripts/sync_incremental.sh
+fi
+EOF
+
+chmod +x /opt/species-tracker/scripts/*.sh
+
+# =============================================================================
 # Setup Cron Jobs for Data Refresh
 # =============================================================================
-echo "📅 Setting up OBIS data refresh cron jobs..."
+echo "📅 Setting up species data refresh cron jobs..."
 
 # Create a system-wide cron file
 cat > /etc/cron.d/species-tracker-refresh << 'CRON'
 # Monthly Incremental Refresh (1st day of month, 03:00 UTC)
-0 3 1 * * ubuntu cd /opt/species-tracker && /usr/local/bin/docker-compose exec -T backend python manage.py refresh_obis_data --mode incremental >> /var/log/obis_refresh_monthly.log 2>&1
+0 3 1 * * ubuntu cd /opt/species-tracker && /bin/bash scripts/sync_incremental.sh >> /var/log/species_sync_incremental.log 2>&1
 
 # Bi-Annual Full Refresh (1st day of January and July, 04:00 UTC)
-0 4 1 1,7 * ubuntu cd /opt/species-tracker && /usr/local/bin/docker-compose exec -T backend python manage.py refresh_obis_data --mode full >> /var/log/obis_refresh_biannual.log 2>&1
+0 4 1 1,7 * ubuntu cd /opt/species-tracker && echo "yes" | /bin/bash scripts/sync_full_refresh.sh >> /var/log/species_sync_full.log 2>&1
 CRON
 
 # Set permissions for the cron file
 chmod 0644 /etc/cron.d/species-tracker-refresh
 
 # Create log files and set permissions for the ubuntu user
-touch /var/log/obis_refresh_monthly.log /var/log/obis_refresh_biannual.log
-chown ubuntu:ubuntu /var/log/obis_refresh_monthly.log /var/log/obis_refresh_biannual.log
-chmod 664 /var/log/obis_refresh_monthly.log /var/log/obis_refresh_biannual.log
+touch /var/log/species_sync_incremental.log /var/log/species_sync_full.log
+chown ubuntu:ubuntu /var/log/species_sync_incremental.log /var/log/species_sync_full.log
+chmod 664 /var/log/species_sync_incremental.log /var/log/species_sync_full.log
 
 # =============================================================================
 # Create CloudWatch agent configuration (optional)
