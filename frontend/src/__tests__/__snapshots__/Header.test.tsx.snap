@@ -1,0 +1,166 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`renders homepage unchanged 1`] = `
+<div>
+  <header
+    class="w-full relative z-30 shrink-0 overflow-hidden shadow-2xl"
+  >
+    <div
+      class="absolute inset-0 bg-brand-primary-900 kerama-depth -z-0"
+    />
+    <nav
+      class="relative z-10 border-b border-white/10 backdrop-blur-md"
+    >
+      <div
+        class="mx-auto px-4 sm:px-6 lg:px-8"
+      >
+        <div
+          class="flex h-28 items-center justify-between gap-8"
+        >
+          <div
+            class="flex items-center gap-4"
+          >
+            <div
+              class="relative group"
+            >
+              <div
+                class="absolute -inset-1 bg-brand-primary-300 rounded-full blur opacity-20 group-hover:opacity-40 transition duration-1000"
+              />
+              <div
+                class="relative flex h-14 w-14 items-center justify-center rounded-xl bg-white/10 border border-white/20 backdrop-blur-sm shadow-2xl"
+              >
+                <img
+                  alt="Kuroshio-Lab Logo"
+                  class="h-8 w-8 drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]"
+                  data-nimg="1"
+                  decoding="async"
+                  height="32"
+                  loading="lazy"
+                  src="/kuroshio-logo.svg"
+                  style="color: transparent;"
+                  width="32"
+                />
+              </div>
+            </div>
+            <div
+              class="flex flex-col justify-center"
+            >
+              <h1
+                class="text-2xl font-bold tracking-tight leading-none"
+              >
+                <span
+                  class="bg-gradient-to-r from-white via-brand-primary-100 to-brand-primary-300 bg-clip-text text-transparent"
+                >
+                  Kuroshio-Lab
+                </span>
+                <span
+                  class="ml-2 text-lg font-light text-brand-primary-100/60 hidden md:inline"
+                >
+                  Marine Species Observation Tracker
+                </span>
+              </h1>
+              <p
+                class="text-xs font-medium text-brand-primary-300/80 mt-1.5 max-w-md line-clamp-1"
+              >
+                Empower divers, biologists, and hobbyists...
+              </p>
+              <div
+                class="flex items-center gap-2 mt-2 bg-black/20 w-fit px-2 py-0.5 rounded-full border border-white/5"
+              >
+                <div
+                  class="h-1.5 w-1.5 rounded-full bg-semantic-success-500 animate-pulse shadow-[0_0_5px_theme(colors.semantic.success-500)]"
+                />
+                <span
+                  class="text-[9px] uppercase tracking-tighter text-white/40"
+                >
+                  Syncing System...
+                </span>
+              </div>
+            </div>
+          </div>
+          <div
+            class="flex items-center gap-3"
+          >
+            <div
+              class="flex items-center p-1 bg-white/5 rounded-lg border border-white/10 backdrop-blur-xl shadow-inner"
+            >
+              <button
+                class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 py-2 text-white hover:bg-white/10 hover:text-brand-primary-300 transition-all gap-2 px-4 h-9"
+              >
+                <svg
+                  class="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                  />
+                </svg>
+                <span
+                  class="hidden sm:inline font-medium"
+                >
+                  Filters
+                </span>
+              </button>
+              <div
+                class="w-px h-5 bg-white/10 mx-1"
+              />
+              <button
+                class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 py-2 text-white hover:bg-white/10 hover:text-brand-primary-300 transition-all gap-2 px-4 h-9"
+              >
+                <svg
+                  class="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                  />
+                </svg>
+                <span
+                  class="hidden sm:inline font-medium"
+                >
+                  Export
+                </span>
+              </button>
+            </div>
+            <button
+              class="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border shadow-sm hover:text-accent-foreground rounded-md px-3 text-xs h-11 border-white/20 bg-transparent text-white hover:bg-semantic-error-500 hover:border-semantic-error-500 transition-colors"
+            >
+              <svg
+                class="h-4 w-4 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H7a3 3 0 01-3-3V7a3 3 0 013-3h3a3 3 0 013 3v1"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                />
+              </svg>
+              <span
+                class="hidden lg:inline"
+              >
+                Sign Out
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </nav>
+  </header>
+</div>
+`;

@@ -77,7 +77,7 @@ jobs:
 
       - name: Run tests
         working-directory: ./frontend
-        run: npm test -- --passWithNoTests
+        run: npm test
 
   build-frontend-local:
     name: Build Frontend (Local)
