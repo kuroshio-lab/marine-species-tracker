@@ -93,8 +93,6 @@ resource "aws_security_group" "ec2" {
   description = "Security group for EC2 instance"
   vpc_id      = aws_vpc.main.id
 
-  # SSH access (restrict to your IP in production)
-  # SSH access (IPv4)
   ingress {
     from_port   = 22
     to_port     = 22
@@ -103,7 +101,7 @@ resource "aws_security_group" "ec2" {
     description = "SSH access (IPv4)"
   }
 
-  # SSH access (IPv6) - ADD THIS
+  # SSH access (IPv6)
   ingress {
     from_port        = 22
     to_port          = 22
@@ -142,43 +140,9 @@ resource "aws_security_group" "ec2" {
   }
 }
 
-resource "aws_security_group" "rds" {
-  name_prefix = "species-tracker-rds-"
-  description = "Security group for RDS PostgreSQL"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [aws_security_group.ec2.id]
-    description     = "PostgreSQL from EC2"
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "species-tracker-rds-sg"
-  }
-}
-
 # =============================================================================
 # RDS PostgreSQL with PostGIS
 # =============================================================================
-
-resource "aws_db_subnet_group" "main" {
-  name       = "species-tracker-db-subnet-group"
-  subnet_ids = aws_subnet.public[*].id
-
-  tags = {
-    Name = "species-tracker-db-subnet-group"
-  }
-}
 
 resource "random_password" "db_password" {
   length  = 32
@@ -195,37 +159,6 @@ resource "aws_secretsmanager_secret_version" "db_password" {
   secret_string = random_password.db_password.result
 }
 
-resource "aws_db_instance" "main" {
-  identifier        = "species-tracker-postgres"
-  engine            = "postgres"
-  engine_version    = "14.17"
-  instance_class    = var.db_instance_class
-  allocated_storage = 20
-  storage_type      = "gp3"
-  storage_encrypted = true
-
-  db_name  = "marine_tracker"
-  username = "postgres"
-  password = random_password.db_password.result
-
-  db_subnet_group_name   = aws_db_subnet_group.main.name
-  vpc_security_group_ids = [aws_security_group.rds.id]
-  publicly_accessible    = false
-
-  backup_retention_period = 7
-  backup_window           = "03:00-04:00"
-  maintenance_window      = "mon:04:00-mon:05:00"
-
-  skip_final_snapshot       = var.environment != "production"
-  final_snapshot_identifier = var.environment == "production" ? "species-tracker-final-${formatdate("YYYY-MM-DD-hhmm", timestamp())}" : null
-
-  enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
-
-  tags = {
-    Name = "species-tracker-postgres"
-  }
-}
-
 # =============================================================================
 # EC2 Instance
 # =============================================================================
@@ -233,7 +166,7 @@ resource "aws_db_instance" "main" {
 # Get latest Ubuntu AMI
 data "aws_ami" "ubuntu" {
   most_recent = true
-  owners      = ["099720109477"] # Canonical
+  owners      = ["099720109477"]
 
   filter {
     name   = "name"
@@ -291,7 +224,7 @@ resource "aws_iam_role_policy" "ec2_route53" {
       Effect = "Allow"
       Action = [
         "route53:ChangeResourceRecordSets",
-        "route53:ListResourceRecordSets" # Often useful for debugging/checking
+        "route53:ListResourceRecordSets"
       ]
       Resource = [
         "arn:aws:route53:::hostedzone/${data.terraform_remote_state.global.outputs.hosted_zone_id}"
@@ -405,9 +338,9 @@ resource "aws_instance" "app" {
 
   # User data script for EC2 initialization
   user_data_base64 = base64gzip(templatefile("${path.module}/user-data.sh", {
-    db_host                = aws_db_instance.main.address
-    db_name                = aws_db_instance.main.db_name
-    db_user                = aws_db_instance.main.username
+    db_host                = "db"
+    db_name                = "marine_tracker"
+    db_user                = "postgres"
     db_password_secret_arn = aws_secretsmanager_secret.db_password.arn
     django_secret_arn      = aws_secretsmanager_secret.django_secret.arn
     resend_api_secret_arn  = aws_secretsmanager_secret.resend_api.arn
@@ -421,7 +354,7 @@ resource "aws_instance" "app" {
 
   }))
 
-  user_data_replace_on_change = false
+  user_data_replace_on_change = true
 
   root_block_device {
     volume_size = var.volume_size
@@ -485,39 +418,5 @@ resource "aws_cloudwatch_metric_alarm" "ec2_cpu" {
 
   dimensions = {
     InstanceId = aws_instance.app.id
-  }
-}
-
-resource "aws_cloudwatch_metric_alarm" "rds_cpu" {
-  alarm_name          = "species-tracker-rds-high-cpu"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/RDS"
-  period              = "300"
-  statistic           = "Average"
-  threshold           = "80"
-  alarm_description   = "Alert when RDS CPU exceeds 80%"
-  alarm_actions       = [aws_sns_topic.alarms.arn] // Changed from data.terraform_remote_state.global.outputs.sns_alarms_topic_arn
-
-  dimensions = {
-    DBInstanceIdentifier = aws_db_instance.main.id
-  }
-}
-
-resource "aws_cloudwatch_metric_alarm" "rds_storage" {
-  alarm_name          = "species-tracker-rds-low-storage"
-  comparison_operator = "LessThanThreshold"
-  evaluation_periods  = "1"
-  metric_name         = "FreeStorageSpace"
-  namespace           = "AWS/RDS"
-  period              = "300"
-  statistic           = "Average"
-  threshold           = "2000000000" # 2GB in bytes
-  alarm_description   = "Alert when RDS storage < 2GB"
-  alarm_actions       = [aws_sns_topic.alarms.arn] // Changed from data.terraform_remote_state.global.outputs.sns_alarms_topic_arn
-
-  dimensions = {
-    DBInstanceIdentifier = aws_db_instance.main.id
   }
 }

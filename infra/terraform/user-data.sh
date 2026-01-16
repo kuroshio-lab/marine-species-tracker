@@ -158,6 +158,18 @@ cat > docker-compose.yml << 'DOCKERCOMPOSE'
 version: '3.8'
 
 services:
+  db:
+    image: postgis/postgis:14-3.3
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${db_name}
+      POSTGRES_USER: ${db_user}
+      POSTGRES_PASSWORD: $DB_PASSWORD
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
   backend:
     image: backend:latest
     container_name: species-backend
@@ -220,6 +232,7 @@ volumes:
   backend-media:
   certbot-conf:
   certbot-www:
+  postgres_data:
 
 networks:
   app-network:

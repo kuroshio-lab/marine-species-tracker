@@ -14,17 +14,6 @@ output "instance_public_dns" {
   value       = aws_instance.app.public_dns
 }
 
-output "rds_endpoint" {
-  description = "RDS endpoint"
-  value       = aws_db_instance.main.endpoint
-  sensitive   = true
-}
-
-output "rds_database_name" {
-  description = "RDS database name"
-  value       = aws_db_instance.main.db_name
-}
-
 output "frontend_url" {
   description = "Frontend URL"
   value       = "https://species.kuroshio-lab.com"

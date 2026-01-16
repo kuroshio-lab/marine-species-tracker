@@ -23,6 +23,9 @@ Simple, cost-effective infrastructure for the Marine Species Tracker application
 │ ┌─────────────────────────────────────────┐ │
 │ │ Frontend (Next.js in Docker)            │ │
 │ └─────────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────────┐ │
+│ │ Database (PostgreSQL + PostGIS Docker)  │ │
+│ └─────────────────────────────────────────┘ │
 └────────────┬────────────────────────────────┘
              │
              ▼
@@ -40,8 +43,9 @@ Simple, cost-effective infrastructure for the Marine Species Tracker application
 
 | Resource | Type | Cost/Month |
 |----------|------|------------|
-| EC2 | t3.small (2 vCPU, 2GB RAM) | ~$15 |
-| RDS | db.t4g.micro (PostgreSQL) | ~$15 |
+| EC2 | t3.micro / t4g.micro | ~$7-10 |
+| RDS | Managed Instance | **$0 (Moved to EC2)** |
+| Public IP | IPv4 Fee | ~$3.60 |
 | EBS | 30GB gp3 | ~$3 |
 | Route53 | DNS + queries | ~$1 |
 | Data Transfer | Minimal | ~$1 |
@@ -154,12 +158,11 @@ chmod +x deploy.sh migrate.sh
 - Elastic IP (static IP address)
 - IAM role for S3 and SES access
 
-### Database
-- RDS PostgreSQL 14 with PostGIS
-- db.t4g.micro instance
-- 20GB gp3 storage
-- 7-day automated backups
-- Daily maintenance window
+### Database (Local Docker)
+- PostgreSQL 14 with PostGIS (Docker Container)
+- Data persisted via Docker Volumes on EBS
+- Daily internal backups via cron (optional)
+- Integrated into application network
 
 ### Security
 - Security groups (EC2, RDS)
@@ -297,10 +300,8 @@ docker-compose restart nginx
 - Point-in-time recovery enabled
 
 ### Manual Backup
-```bash
-ssh -i ~/.ssh/species-tracker ubuntu@$EC2_IP
-docker exec species-backend python manage.py dumpdata > backup.json
-```
+- Manual Backup: `docker exec species-db pg_dump -U postgres marine_tracker > backup.sql`
+- Snapshot: Automated EBS snapshots (configured via AWS Backup or Lifecycle Manager)
 
 ### Application Files
 - Docker volumes persist data
@@ -355,14 +356,11 @@ docker-compose restart nginx
 
 ### Database Connection Failed
 
-```bash
-# Test connection
-docker exec species-backend python manage.py check --database default
+# Check if database container is running
+docker ps | grep species-db
 
-# Check RDS status
-aws rds describe-db-instances \
-  --db-instance-identifier species-tracker-postgres
-```
+# Check database logs
+docker-compose logs db
 
 ### Out of Disk Space
 
