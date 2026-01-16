@@ -13,15 +13,18 @@ from django.conf import settings
 from django.utils import timezone
 
 from observations.serializers import ObservationGeoSerializer
-
 from core.logging_utils import set_current_user, clear_current_user
 
 User = get_user_model()
-
 logger = logging.getLogger("users")
 
 
 class RegisterSerializer(serializers.ModelSerializer):
+    """
+    Simplified registration - only email, username, password, and role.
+    Researcher profile completion happens after email verification.
+    """
+
     role = serializers.ChoiceField(choices=User.ROLE_CHOICES, required=True)
     password = serializers.CharField(write_only=True, min_length=8)
 
@@ -29,10 +32,24 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = ("id", "email", "password", "username", "role")
 
+    def validate_email(self, value):
+        """Validate email and check against trusted domains for researchers."""
+        email = value.lower()
+
+        # Check if user with this email already exists
+        if User.objects.filter(email=email).exists():
+            raise serializers.ValidationError(
+                "A user with this email already exists."
+            )
+
+        return email
+
     def create(self, validated_data):
         email = validated_data["email"]
+        role = validated_data.get("role", User.HOBBYIST)
+
         set_current_user(email)
-        logger.info(f"Attempting to register new user: {email}")
+        logger.info(f"Attempting to register new user: {email} as {role}")
 
         try:
             # Create inactive user
@@ -40,7 +57,7 @@ class RegisterSerializer(serializers.ModelSerializer):
                 email=email,
                 username=validated_data["username"],
                 password=validated_data["password"],
-                role=validated_data["role"],
+                role=role,
                 is_active=False,  # User is inactive until email is verified
             )
 
@@ -48,6 +65,36 @@ class RegisterSerializer(serializers.ModelSerializer):
             verification_token = secrets.token_urlsafe(32)
             user.email_verification_token = verification_token
             user.email_verification_token_created = timezone.now()
+
+            # If researcher, set verification request timestamp
+            if role == User.RESEARCHER_PENDING:
+                user.verification_requested_at = timezone.now()
+
+                # Check if email domain is trusted for auto-approval
+                from .models import TrustedEmailDomain
+
+                domain = email.split("@")[-1].lower()
+
+                try:
+                    trusted_domain = TrustedEmailDomain.objects.get(
+                        domain=domain
+                    )
+                    if trusted_domain.auto_approve_to_community:
+                        user.verification_notes = (
+                            f"Email domain {domain} is whitelisted. Will"
+                            " auto-approve to Community tier after profile"
+                            " completion."
+                        )
+                        logger.info(
+                            f"User {email} registered with trusted domain"
+                            f" {domain}"
+                        )
+                except TrustedEmailDomain.DoesNotExist:
+                    logger.info(
+                        f"User {email} registered with non-whitelisted domain"
+                        f" {domain}"
+                    )
+
             user.save()
 
             # Send verification email
@@ -82,13 +129,22 @@ class RegisterSerializer(serializers.ModelSerializer):
             "verification_url": verification_url,
             "protocol": protocol,
             "domain": current_site_domain,
+            "is_researcher": user.role == User.RESEARCHER_PENDING,
         }
 
+        # Use different template for researchers
+        if user.role == User.RESEARCHER_PENDING:
+            email_html_template = "users/email_verification_researcher.html"
+            email_plain_template = "users/email_verification_researcher.txt"
+        else:
+            email_html_template = "users/email_verification_email.html"
+            email_plain_template = "users/email_verification_email.txt"
+
         email_html_message = render_to_string(
-            "users/email_verification_email.html", email_context
+            email_html_template, email_context
         )
         email_plain_message = render_to_string(
-            "users/email_verification_email.txt", email_context
+            email_plain_template, email_context
         )
 
         try:
@@ -107,8 +163,91 @@ class RegisterSerializer(serializers.ModelSerializer):
             logger.error(
                 f"Error sending verification email to {user.email}: {str(e)}"
             )
-            # We raise here so the user registration can be rolled back if email fails
             raise
+
+
+class ResearcherProfileSerializer(serializers.ModelSerializer):
+    """
+    Serializer for completing researcher profile after email verification.
+    """
+
+    class Meta:
+        model = User
+        fields = [
+            "institution_name",
+            "ror_id",
+            "orcid",
+            "research_focus",
+            "years_experience",
+            "bio",
+        ]
+
+    def validate(self, data):
+        """Validate required researcher fields."""
+        if not data.get("institution_name"):
+            raise serializers.ValidationError(
+                {"institution_name": "Institution name is required."}
+            )
+
+        if not data.get("research_focus") or len(data["research_focus"]) == 0:
+            raise serializers.ValidationError(
+                {
+                    "research_focus": (
+                        "Please select at least one research focus area."
+                    )
+                }
+            )
+
+        # Validate ORCID format if provided
+        orcid = data.get("orcid")
+        if orcid:
+            import re
+
+            if not re.match(r"^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$", orcid):
+                raise serializers.ValidationError(
+                    {
+                        "orcid": (
+                            "Invalid ORCID format. Expected:"
+                            " 0000-0000-0000-0000"
+                        )
+                    }
+                )
+
+        return data
+
+    def update(self, instance, validated_data):
+        """Update researcher profile and check for auto-approval."""
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+
+        # Check if email domain is trusted for auto-approval
+        from .models import TrustedEmailDomain
+
+        email_domain = instance.email.split("@")[-1].lower()
+
+        try:
+            trusted_domain = TrustedEmailDomain.objects.get(
+                domain=email_domain
+            )
+            if trusted_domain.auto_approve_to_community:
+                instance.role = User.RESEARCHER_COMMUNITY
+                instance.verification_completed_at = timezone.now()
+                instance.verification_notes = (
+                    "Auto-approved to Community tier based on trusted domain:"
+                    f" {email_domain}"
+                )
+                logger.info(
+                    f"User {instance.email} auto-approved to Community tier"
+                )
+        except TrustedEmailDomain.DoesNotExist:
+            # Remains pending, needs admin review
+            logger.info(
+                f"User {instance.email} profile completed, awaiting admin"
+                " review"
+            )
+
+        instance.save()
+        return instance
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -135,15 +274,41 @@ class UserSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(UserSerializer):
     observation_count = serializers.SerializerMethodField()
     observations = ObservationGeoSerializer(many=True, read_only=True)
+    needs_researcher_profile_completion = serializers.BooleanField(
+        read_only=True
+    )
+    verification_status_display = serializers.SerializerMethodField()
+    can_validate_observations = serializers.BooleanField(read_only=True)
+    is_verified_researcher = serializers.BooleanField(read_only=True)
 
     class Meta(UserSerializer.Meta):
         fields = UserSerializer.Meta.fields + (
             "observation_count",
             "observations",
+            "needs_researcher_profile_completion",
+            "verification_status_display",
+            "can_validate_observations",
+            "is_verified_researcher",
+            # Researcher fields
+            "institution_name",
+            "ror_id",
+            "orcid",
+            "research_focus",
+            "years_experience",
+            "bio",
         )
 
     def get_observation_count(self, obj):
         return obj.observations.count()
+
+    def get_verification_status_display(self, obj):
+        status_map = {
+            User.HOBBYIST: "Not Applicable",
+            User.RESEARCHER_PENDING: "Pending Verification",
+            User.RESEARCHER_COMMUNITY: "Community Verified",
+            User.RESEARCHER_INSTITUTIONAL: "Institutionally Verified",
+        }
+        return status_map.get(obj.role, "Unknown")
 
 
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -212,28 +377,19 @@ class PasswordResetRequestSerializer(serializers.Serializer):
     def save(self):
         user = self.user
         token = default_token_generator.make_token(user)
-        # Use the same UID encoding as Django's built-in password reset
         uid = base64.urlsafe_b64encode(force_bytes(user.pk)).decode("ascii")
 
-        # --- Environment-specific domain logic ---
         if settings.DEBUG:
-            # For development, use localhost or your local frontend dev server
-            current_site_domain = (  # Or whatever your frontend dev server is
-                "localhost:3000"
-            )
+            current_site_domain = "localhost:3000"
             protocol = "http"
         else:
-            # For production, use your actual frontend domain
             current_site_domain = "species.kuroshio-lab.com"
-            protocol = "https"  # Always use HTTPS in production
+            protocol = "https"
 
-        # Construct the password reset link for the frontend
-        # Assuming your frontend has a route like /reset-password/<uid>/<token>/
         reset_link = (
             f"{protocol}://{current_site_domain}/reset-password/{uid}/{token}/"
         )
 
-        # Render the email content using a template
         email_context = {
             "user": user,
             "reset_link": reset_link,
@@ -264,7 +420,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     token = serializers.CharField(required=True)
     new_password = serializers.CharField(
         write_only=True, required=True, min_length=8
-    )  # Add validation as needed
+    )
     re_new_password = serializers.CharField(
         write_only=True, required=True, min_length=8
     )
@@ -283,13 +439,11 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
             )
             user = User._default_manager.get(pk=uid)
         except (TypeError, ValueError, OverflowError):
-            # Log the invalid uidb64 for debugging
             print(f"Invalid uidb64: {self.validated_data.get('uidb64')}")
             raise serializers.ValidationError(
                 {"uidb64": "Invalid user ID in reset link."}
             )
         except User.DoesNotExist:
-            # Log the uid for debugging
             print(f"User not found for uid: {uid}")
             raise serializers.ValidationError({"uidb64": "User not found."})
 
@@ -302,7 +456,6 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
             user.save()
             return user
         else:
-            # Log debugging info
             print(
                 f"Token validation failed. User: {user}, Token:"
                 f" {self.validated_data.get('token')[:10]}..., Valid:"

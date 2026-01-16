@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework_gis.filters import InBBoxFilter
 
 from .models import Observation
-from .permissions import IsAdminOrResearcher, IsOwnerOrAdminOrResearcher
+from .permissions import IsVerifiedResearcher
 from .serializers import ObservationGeoSerializer
 
 
@@ -37,7 +37,7 @@ class ObservationDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ObservationGeoSerializer
     permission_classes = [
         permissions.IsAuthenticated,
-        IsOwnerOrAdminOrResearcher,
+        IsVerifiedResearcher,
     ]
 
     def get_queryset(self):
@@ -62,7 +62,7 @@ class ObservationExportView(APIView):
 
 # Only admin/researcher can validate
 class ObservationValidateView(APIView):
-    permission_classes = [IsAdminOrResearcher]
+    permission_classes = [IsVerifiedResearcher]
 
     def post(self, request, pk):
         try:

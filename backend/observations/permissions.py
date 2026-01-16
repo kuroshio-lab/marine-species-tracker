@@ -1,36 +1,49 @@
 from rest_framework import permissions
 
 
-class IsAdminOrResearcher(permissions.BasePermission):
+class IsVerifiedResearcher(permissions.BasePermission):
     """
-    Custom permission to only allow admin or researcher users
+    Allows only Community or Institutionally Verified researchers
     to validate observations.
     """
+
+    message = "Only verified researchers can validate observations."
 
     def has_permission(self, request, view):
         user = request.user
         if user and user.is_authenticated:
-            return user.is_staff or getattr(user, "role", None) == "researcher"
+            return user.is_staff or user.is_verified_researcher
         return False
 
 
-class IsOwnerOrAdminOrResearcher(permissions.BasePermission):
+class IsInstitutionalResearcher(permissions.BasePermission):
     """
-    Custom permission to only allow owners of an object, or admin/researcher users,
-    to edit or delete it.
+    Allows only Institutionally Verified researchers for sensitive operations.
+    Use this for features like bulk exports, advanced API access, etc.
     """
 
-    def has_object_permission(self, request, view, obj):
-        # Read permissions are allowed to any request,
-        # so we'll always allow GET, HEAD or OPTIONS requests.
-        if request.method in permissions.SAFE_METHODS:
-            return True
+    message = "This action requires institutional researcher verification."
 
-        # Write permissions are only allowed to the owner of the observation,
-        # or to admin/researcher users.
+    def has_permission(self, request, view):
         user = request.user
-        return (
-            obj.user == user
-            or user.is_staff
-            or getattr(user, "role", None) == "researcher"
-        )
+        if user and user.is_authenticated:
+            from users.models import User
+
+            return user.is_staff or user.role == User.RESEARCHER_INSTITUTIONAL
+        return False
+
+
+class IsPendingResearcher(permissions.BasePermission):
+    """
+    Check if user is a pending researcher (for specific endpoints).
+    """
+
+    message = "This action is only available to pending researchers."
+
+    def has_permission(self, request, view):
+        user = request.user
+        if user and user.is_authenticated:
+            from users.models import User
+
+            return user.role == User.RESEARCHER_PENDING
+        return False

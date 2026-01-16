@@ -61,4 +61,9 @@ urlpatterns = [
         views.EmailVerificationAPIView.as_view(),
         name="api_email_verification",
     ),
+    path(
+        "researcher/complete-profile/",
+        views.CompleteResearcherProfileView.as_view(),
+        name="complete_researcher_profile",
+    ),
 ]
