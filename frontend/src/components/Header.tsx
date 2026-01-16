@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useUser } from "./UserProvider";
 import { Button } from "./ui/button";
 import FilterModal from "./FilterModal";
+import UserRoleBadge from "./UserRoleBadge";
 import { cn } from "../lib/utils";
 
 interface HeaderProps {
@@ -37,6 +38,7 @@ export default function Header({
   if (!mounted) {
     return <div className="h-28 w-full bg-brand-primary-900" />;
   }
+
   const handleApplyFiltersAndCloseModal = (filters: {
     speciesName: string | null;
     commonName: string | null;
@@ -45,29 +47,6 @@ export default function Header({
   }) => {
     onApplyFilters(filters);
     setIsFilterModalOpen(false);
-  };
-
-  const renderUserStatus = () => {
-    if (loading) {
-      return (
-        <span className="text-[9px] uppercase tracking-tighter text-white/40">
-          Syncing System...
-        </span>
-      );
-    }
-
-    if (user) {
-      return (
-        <span className="text-[9px] uppercase tracking-wider text-brand-primary-100 font-bold">
-          Operator: {user.username}
-        </span>
-      );
-    }
-    return (
-      <span className="text-[9px] uppercase tracking-wider text-semantic-error-500">
-        System Offline
-      </span>
-    );
   };
 
   return (
@@ -106,22 +85,47 @@ export default function Header({
                   Empower divers, biologists, and hobbyists...
                 </p>
 
-                <div className="flex items-center gap-2 mt-2 bg-black/20 w-fit px-2 py-0.5 rounded-full border border-white/5">
-                  <div
-                    className={cn(
-                      "h-1.5 w-1.5 rounded-full",
-                      user
-                        ? "bg-semantic-success-500 animate-pulse shadow-[0_0_5px_theme(colors.semantic.success-500)]"
-                        : "bg-neutral-gray-500",
-                    )}
-                  />
-                  {renderUserStatus()}
-                </div>
+                {/* User Status with Role Badge */}
+                {user && !loading && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-2 bg-black/20 px-2 py-0.5 rounded-full border border-white/5">
+                      <div
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          "bg-semantic-success-500 animate-pulse shadow-[0_0_5px_theme(colors.semantic.success-500)]",
+                        )}
+                      />
+                      <span className="text-[9px] uppercase tracking-wider text-brand-primary-100 font-bold">
+                        Operator: {user.username}
+                      </span>
+                    </div>
+                    {/* Mobile: Compact badge */}
+                    <div className="lg:hidden">
+                      <UserRoleBadge user={user} variant="compact" />
+                    </div>
+                  </div>
+                )}
+
+                {loading && (
+                  <div className="flex items-center gap-2 mt-2 bg-black/20 w-fit px-2 py-0.5 rounded-full border border-white/5">
+                    <div className="h-1.5 w-1.5 rounded-full bg-neutral-gray-500 animate-pulse" />
+                    <span className="text-[9px] uppercase tracking-tighter text-white/40">
+                      Syncing System...
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* RIGHT SECTION: Navigation Actions */}
             <div className="flex items-center gap-3">
+              {/* Desktop: Full role badge */}
+              {user && !loading && (
+                <div className="hidden lg:block">
+                  <UserRoleBadge user={user} variant="full" />
+                </div>
+              )}
+
               {/* Glassmorphism Action Group */}
               <div className="flex items-center p-1 bg-white/5 rounded-lg border border-white/10 backdrop-blur-xl shadow-inner">
                 <Button

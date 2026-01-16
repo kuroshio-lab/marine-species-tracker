@@ -7,6 +7,7 @@ export type ShadcnFormFieldType =
   | "email"
   | "password"
   | "select"
+  | "multi-select"
   | "number"
   | "date"
   | "datetime-local"
@@ -23,8 +24,10 @@ export interface FormField {
   type: ShadcnFormFieldType;
   placeholder?: string;
   description?: string;
+  helperText?: string;
   options?: FormFieldOption[];
   optional?: boolean;
+  maxLength?: number;
 }
 
 export interface DynamicFormProps<T extends FieldValues> {
@@ -38,4 +41,5 @@ export interface DynamicFormProps<T extends FieldValues> {
   linkText?: string;
   linkHref?: string;
   defaultValues?: DefaultValues<T>;
+  onFieldChange?: (name: string, value: any) => void;
 }
