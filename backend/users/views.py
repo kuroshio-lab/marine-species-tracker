@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.contrib.auth import get_user_model, logout
+from django.contrib.auth import get_user_model, logout, login
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -14,6 +14,7 @@ from .serializers import (
     PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer,
     EmailVerificationSerializer,
+    ResearcherProfileSerializer,
 )
 
 
@@ -39,6 +40,71 @@ class ProfileMeView(generics.RetrieveAPIView):
         return self.request.user
 
 
+class CompleteResearcherProfileView(generics.UpdateAPIView):
+    """
+    Endpoint for researchers to complete their profile after email verification.
+    """
+
+    serializer_class = ResearcherProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        user = self.request.user
+
+        # Only allow pending researchers to complete profile
+        if not (
+            user.role == get_user_model().RESEARCHER_PENDING
+            or user.needs_researcher_profile_completion
+        ):
+            from rest_framework.exceptions import PermissionDenied
+
+            raise PermissionDenied(
+                "This endpoint is only for pending researchers."
+            )
+
+        # Ensure email is verified
+        if not user.email_verified:
+            from rest_framework.exceptions import PermissionDenied
+
+            raise PermissionDenied(
+                "Please verify your email before completing your profile."
+            )
+
+        return user
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = (
+            self.get_object()
+        )  # This gets the user as 'researcher_pending' initially
+        serializer = self.get_serializer(
+            instance, data=request.data, partial=partial
+        )
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(
+            serializer
+        )  # This calls serializer.save() and updates the user (e.g., to 'researcher_community')
+
+        # Access the updated user object directly from the serializer's instance
+        user = serializer.instance
+
+        response = Response(serializer.data, status=status.HTTP_200_OK)
+
+        # Check if user was auto-approved
+        if user.role == get_user_model().RESEARCHER_COMMUNITY:
+            response.data["message"] = (
+                "Profile completed and automatically verified! "
+                "You can now validate observations."
+            )
+        else:
+            response.data["message"] = (
+                "Profile completed! Your account is pending admin review. "
+                "You will be notified once approved."
+            )
+
+        return response
+
+
 class EmailTokenObtainPairView(TokenObtainPairView):
     serializer_class = EmailTokenObtainPairSerializer
 
@@ -58,7 +124,6 @@ class EmailTokenObtainPairView(TokenObtainPairView):
                     "AUTH_COOKIE_SECURE", not settings.DEBUG
                 ),
                 samesite=jwt_settings.get("AUTH_COOKIE_SAMESITE", "Lax"),
-                # Use the domain from settings!
                 domain=jwt_settings.get("AUTH_COOKIE_DOMAIN"),
                 max_age=24 * 60 * 60,
                 path=jwt_settings.get("AUTH_COOKIE_PATH", "/"),
@@ -70,15 +135,10 @@ class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-
-        # Perform Django's built-in logout to invalidate the session
         logout(request)
-
         resp = Response({"detail": "Logged out"}, status=200)
 
-        # Common cookie attributes for deletion
         cookie_path = settings.SIMPLE_JWT.get("AUTH_COOKIE_PATH", "/")
-        # Explicitly set domain for localhost in development for robust deletion
         cookie_domain = (
             "localhost"
             if settings.DEBUG
@@ -88,7 +148,6 @@ class LogoutView(APIView):
             "AUTH_COOKIE_SAMESITE", "Lax"
         )
 
-        # Delete access_token cookie
         access_cookie_name = settings.SIMPLE_JWT["AUTH_COOKIE"]
         resp.delete_cookie(
             access_cookie_name,
@@ -97,7 +156,6 @@ class LogoutView(APIView):
             samesite=cookie_samesite,
         )
 
-        # Delete refresh_token cookie
         refresh_cookie_name = settings.SIMPLE_JWT["AUTH_COOKIE_REFRESH"]
         resp.delete_cookie(
             refresh_cookie_name,
@@ -111,9 +169,7 @@ class LogoutView(APIView):
 
 class PasswordResetAPIView(generics.GenericAPIView):
     serializer_class = PasswordResetRequestSerializer
-    permission_classes = (
-        AllowAny,
-    )  # Uncomment if you want to allow unauthenticated access
+    permission_classes = (AllowAny,)
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -127,9 +183,7 @@ class PasswordResetAPIView(generics.GenericAPIView):
 
 class PasswordResetConfirmAPIView(generics.GenericAPIView):
     serializer_class = PasswordResetConfirmSerializer
-    permission_classes = (
-        AllowAny,
-    )  # Uncomment if you want to allow unauthenticated access
+    permission_classes = (AllowAny,)
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -150,7 +204,21 @@ class EmailVerificationAPIView(generics.GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        login(request, user)
+
+        # Return user info including whether they need to complete profile
         return Response(
-            {"detail": "Email has been verified successfully."},
+            {
+                "detail": "Email has been verified successfully.",
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "username": user.username,
+                    "role": user.role,
+                    "needs_researcher_profile_completion": (
+                        user.needs_researcher_profile_completion
+                    ),
+                },
+            },
             status=status.HTTP_200_OK,
         )

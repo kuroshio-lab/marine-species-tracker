@@ -66,7 +66,41 @@ function renderFieldControl(
           placeholder={field.placeholder}
           {...formField}
           disabled={loading}
+          maxLength={field.maxLength}
         />
+      );
+    case "multi-select":
+      return (
+        <div className="flex flex-wrap gap-2 p-3 border rounded-md bg-white min-h-[40px]">
+          {field.options?.map((option) => {
+            const isSelected =
+              Array.isArray(formField.value) &&
+              formField.value.includes(option.value);
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  const currentValues = Array.isArray(formField.value)
+                    ? formField.value
+                    : [];
+                  const nextValues = isSelected
+                    ? currentValues.filter((v: string) => v !== option.value)
+                    : [...currentValues, option.value];
+                  formField.onChange(nextValues);
+                }}
+                disabled={loading}
+                className={`px-3 py-1 text-sm rounded-full border transition-all ${
+                  isSelected
+                    ? "bg-[#0077BA] text-white border-[#0077BA] shadow-sm"
+                    : "bg-gray-50 text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-100"
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
       );
     default:
       return (
@@ -105,6 +139,8 @@ export default function ShadcnDynamicForm<T extends FieldValues>({
         // Use defaultValues if provided
         fields.map((field) => {
           switch (field.type) {
+            case "multi-select":
+              return [field.name, []];
             case "number":
               return [field.name, ""];
             case "date":
@@ -145,8 +181,10 @@ export default function ShadcnDynamicForm<T extends FieldValues>({
                   <FormControl>
                     {renderFieldControl(field, formField, loading)}
                   </FormControl>
-                  {field.description && (
-                    <FormDescription>{field.description}</FormDescription>
+                  {(field.description || field.helperText) && (
+                    <FormDescription>
+                      {field.description || field.helperText}
+                    </FormDescription>
                   )}
                   <FormMessage />
                 </FormItem>

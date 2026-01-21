@@ -15,6 +15,9 @@ class TestUserAuth:
     profile_me_url = "/api/v1/auth/profiles/me/"
     password_reset_request_url = "/api/v1/auth/password-reset/"
     password_reset_confirm_url = "/api/v1/auth/password-reset/confirm/"
+    complete_researcher_profile_url = (
+        "/api/v1/auth/researcher/complete-profile/"
+    )
 
     @pytest.fixture
     def client(self):
@@ -452,3 +455,220 @@ class TestUserAuth:
         )
         assert resp.status_code == 400
         assert "new_password" in resp.data or "re_new_password" in resp.data
+
+    @pytest.fixture
+    def trusted_email_domain(self):
+        from users.models import TrustedEmailDomain
+
+        return TrustedEmailDomain.objects.create(
+            domain="example.com",
+            organization_name="Test Org",
+            auto_approve_to_community=True,
+        )
+
+    def test_register_researcher_pending(self, client):
+        resp = client.post(
+            self.register_url,
+            {
+                "email": "researcher@example.com",
+                "username": "researcherbob",
+                "password": "testpassword123",
+                "role": User.RESEARCHER_PENDING,
+            },
+            format="json",
+        )
+        assert resp.status_code in (200, 201)
+        data = resp.json()
+        assert data["email"] == "researcher@example.com"
+        assert data["username"] == "researcherbob"
+        assert data["role"] == User.RESEARCHER_PENDING
+
+    def test_complete_researcher_profile_success_auto_approve(
+        self, client, trusted_email_domain
+    ):
+        # 1. Register a researcher_pending user
+        register_payload = {
+            "email": "researcher@example.com",
+            "username": "researcherbob",
+            "password": "testpassword123",
+            "role": User.RESEARCHER_PENDING,
+        }
+        client.post(self.register_url, register_payload, format="json")
+
+        # Get the user and activate/verify
+        user_obj = User.objects.get(email="researcher@example.com")
+        user_obj.is_active = True
+        user_obj.email_verified = True
+        user_obj.save()
+
+        # 2. Login the user to get a token
+        login_resp = client.post(
+            self.login_url,
+            {
+                "email": "researcher@example.com",
+                "password": "testpassword123",
+            },
+            format="json",
+        )
+        token = login_resp.data["access"]
+        client.credentials(HTTP_AUTHORIZATION="Bearer " + token)
+
+        # 3. Complete the researcher profile
+        profile_payload = {
+            "institution_name": "Test University",
+            "research_focus": ["Marine Biology", "Ecology"],
+            "years_experience": 5,
+        }
+        resp = client.patch(
+            self.complete_researcher_profile_url,
+            profile_payload,
+            format="json",
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert (
+            data["message"]
+            == "Profile completed and automatically verified! You can now"
+            " validate observations."
+        )
+
+        # 4. Verify user role is updated to RESEARCHER_COMMUNITY
+        user_obj.refresh_from_db()
+        assert user_obj.role == User.RESEARCHER_COMMUNITY
+        assert user_obj.institution_name == "Test University"
+        assert user_obj.research_focus == ["Marine Biology", "Ecology"]
+        assert user_obj.years_experience == 5
+
+    def test_complete_researcher_profile_missing_fields_fails(self, client):
+        # 1. Register a researcher_pending user
+        register_payload = {
+            "email": "missingfields@example.com",
+            "username": "missingfields",
+            "password": "testpassword123",
+            "role": User.RESEARCHER_PENDING,
+        }
+        client.post(self.register_url, register_payload, format="json")
+
+        # Get the user and activate/verify
+        user_obj = User.objects.get(email="missingfields@example.com")
+        user_obj.is_active = True
+        user_obj.email_verified = True
+        user_obj.save()
+
+        # 2. Login the user to get a token
+        login_resp = client.post(
+            self.login_url,
+            {
+                "email": "missingfields@example.com",
+                "password": "testpassword123",
+            },
+            format="json",
+        )
+        token = login_resp.data["access"]
+        client.credentials(HTTP_AUTHORIZATION="Bearer " + token)
+
+        # 3. Attempt to complete with missing required fields
+        profile_payload = {
+            "years_experience": (
+                2
+            ),  # Missing institution_name and research_focus
+        }
+        resp = client.patch(
+            self.complete_researcher_profile_url,
+            profile_payload,
+            format="json",
+        )
+        assert resp.status_code == 400
+        assert "institution_name" in resp.data
+        assert "research_focus" in resp.data
+
+    def test_hobbyist_cannot_complete_researcher_profile(
+        self, client, register_user
+    ):
+        # Activate the hobbyist user
+        user_obj = User.objects.get(email=register_user["email"])
+        user_obj.is_active = True
+        user_obj.email_verified = True
+        user_obj.save()
+
+        # Login the hobbyist user
+        login_resp = client.post(
+            self.login_url,
+            {
+                "email": register_user["email"],
+                "password": "testpassword123",
+            },
+            format="json",
+        )
+        token = login_resp.data["access"]
+        client.credentials(HTTP_AUTHORIZATION="Bearer " + token)
+
+        # Attempt to access the researcher profile completion endpoint
+        profile_payload = {
+            "institution_name": "Should Not Work",
+            "research_focus": ["Should Not Work"],
+        }
+        resp = client.patch(
+            self.complete_researcher_profile_url,
+            profile_payload,
+            format="json",
+        )
+        assert resp.status_code == 403  # Forbidden
+        assert (
+            "This endpoint is only for pending researchers."
+            in resp.data["detail"]
+        )
+
+    def test_profile_me_needs_researcher_profile_completion(self, client):
+        # 1. Register a researcher_pending user but do NOT complete profile
+        register_payload = {
+            "email": "needscompletion@example.com",
+            "username": "needscompletion",
+            "password": "testpassword123",
+            "role": User.RESEARCHER_PENDING,
+        }
+        client.post(self.register_url, register_payload, format="json")
+
+        # Get the user and activate/verify
+        user_obj = User.objects.get(email="needscompletion@example.com")
+        user_obj.is_active = True
+        user_obj.email_verified = True
+        user_obj.save()
+
+        # 2. Login the user to get a token
+        login_resp = client.post(
+            self.login_url,
+            {
+                "email": "needscompletion@example.com",
+                "password": "testpassword123",
+            },
+            format="json",
+        )
+        token = login_resp.data["access"]
+        client.credentials(HTTP_AUTHORIZATION="Bearer " + token)
+
+        # 3. Check profile_me endpoint
+        resp = client.get(self.profile_me_url)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["role"] == User.RESEARCHER_PENDING
+        assert data["needs_researcher_profile_completion"] is True
+
+        # After completing the profile, this should become False
+        profile_payload = {
+            "institution_name": "Completed University",
+            "research_focus": ["Oceanography"],
+        }
+        client.patch(
+            self.complete_researcher_profile_url,
+            profile_payload,
+            format="json",
+        )
+
+        resp_after_completion = client.get(self.profile_me_url)
+        assert resp_after_completion.status_code == 200
+        data_after_completion = resp_after_completion.json()
+        assert (
+            data_after_completion["needs_researcher_profile_completion"]
+            is False
+        )

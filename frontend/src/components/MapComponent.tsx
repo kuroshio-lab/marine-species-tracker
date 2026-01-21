@@ -346,7 +346,6 @@ export default function MapComponent({
 
                     // Get marker position before popup opens
                     const marker = e.target;
-                    const markerLatLng = marker.getLatLng();
 
                     // Close any previously open popup
                     if (

@@ -7,6 +7,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from observations.models import Observation
+from users.models import TrustedEmailDomain
 
 User = get_user_model()
 
@@ -22,6 +23,12 @@ class ObservationAPITestCase(APITestCase):
         self.user.is_active = True
         self.user.email_verified = True
         self.user.save()
+        # Create a trusted email domain for auto-approval tests
+        TrustedEmailDomain.objects.create(
+            domain="test.com",
+            organization_name="Test Organization",
+            auto_approve_to_community=True,
+        )
 
         self.login_url = reverse("token_obtain_pair")
         self.observations_url = reverse("user-observations")
@@ -104,6 +111,8 @@ class ObservationAPITestCase(APITestCase):
             username=username,
             password=password,
             role=role or User.HOBBYIST,
+            is_active=True,
+            email_verified=True,
         )
         if role:
             user.role = role
@@ -164,15 +173,62 @@ class ObservationAPITestCase(APITestCase):
         obs.refresh_from_db()
         self.assertEqual(obs.validated, "validated")
 
-    def test_researcher_can_validate_observation(self):
+    def test_researcher_community_can_validate_after_profile_completion(self):
+        # Create a pending researcher
         researcher_user = self.create_user_with_role(
             email="researcher@test.com",
             username="researchertest",
             password="StrongPassword123",
-            role="researcher",
+            role=User.RESEARCHER_PENDING,
         )
-        obs = self.make_observation(researcher_user)
-        self.authenticate_as(researcher_user)
+
+        from users.serializers import ResearcherProfileSerializer
+
+        serializer = ResearcherProfileSerializer(
+            instance=researcher_user,
+            data={
+                "institution_name": "Test University",
+                "research_focus": ["fish"],
+            },
+            partial=True,
+        )
+        self.assertTrue(serializer.is_valid(raise_exception=True))
+        serializer.save()
+
+        researcher_user.refresh_from_db()
+
+        self.assertEqual(researcher_user.role, User.RESEARCHER_COMMUNITY)
+
+    def test_researcher_pending_uncompleted_profile_cannot_validate(self):
+        pending_researcher_user = self.create_user_with_role(
+            email="pending@test.com",
+            username="pendingresearcher",
+            password="StrongPassword123",
+            role=User.RESEARCHER_PENDING,
+        )
+        self.assertEqual(pending_researcher_user.role, User.RESEARCHER_PENDING)
+
+        obs = self.make_observation(pending_researcher_user)
+        self.authenticate_as(pending_researcher_user)
+        url = reverse("observation-validate", kwargs={"pk": obs.pk})
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 403)
+        obs.refresh_from_db()
+        self.assertNotEqual(obs.validated, "validated")
+
+    def test_researcher_institutional_can_validate_observation(self):
+        institutional_researcher_user = self.create_user_with_role(
+            email="institutional@test.com",
+            username="institutionalresearcher",
+            password="StrongPassword123",
+            role=User.RESEARCHER_INSTITUTIONAL,
+        )
+        self.assertEqual(
+            institutional_researcher_user.role, User.RESEARCHER_INSTITUTIONAL
+        )
+
+        obs = self.make_observation(institutional_researcher_user)
+        self.authenticate_as(institutional_researcher_user)
         url = reverse("observation-validate", kwargs={"pk": obs.pk})
         response = self.client.post(url)
         self.assertEqual(response.status_code, 200)
