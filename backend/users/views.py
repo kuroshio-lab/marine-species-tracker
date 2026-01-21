@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.contrib.auth import get_user_model, logout
+from django.contrib.auth import get_user_model, logout, login
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -52,7 +52,10 @@ class CompleteResearcherProfileView(generics.UpdateAPIView):
         user = self.request.user
 
         # Only allow pending researchers to complete profile
-        if user.role != get_user_model().RESEARCHER_PENDING:
+        if not (
+            user.role == get_user_model().RESEARCHER_PENDING
+            or user.needs_researcher_profile_completion
+        ):
             from rest_framework.exceptions import PermissionDenied
 
             raise PermissionDenied(
@@ -70,10 +73,24 @@ class CompleteResearcherProfileView(generics.UpdateAPIView):
         return user
 
     def update(self, request, *args, **kwargs):
-        response = super().update(request, *args, **kwargs)
+        partial = kwargs.pop("partial", False)
+        instance = (
+            self.get_object()
+        )  # This gets the user as 'researcher_pending' initially
+        serializer = self.get_serializer(
+            instance, data=request.data, partial=partial
+        )
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(
+            serializer
+        )  # This calls serializer.save() and updates the user (e.g., to 'researcher_community')
+
+        # Access the updated user object directly from the serializer's instance
+        user = serializer.instance
+
+        response = Response(serializer.data, status=status.HTTP_200_OK)
 
         # Check if user was auto-approved
-        user = self.get_object()
         if user.role == get_user_model().RESEARCHER_COMMUNITY:
             response.data["message"] = (
                 "Profile completed and automatically verified! "
@@ -187,6 +204,7 @@ class EmailVerificationAPIView(generics.GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        login(request, user)
 
         # Return user info including whether they need to complete profile
         return Response(

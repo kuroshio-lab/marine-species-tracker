@@ -7,6 +7,7 @@ import AuthLayout from "@/components/AuthLayout";
 import ShadcnDynamicForm from "@/components/ShadcnDynamicForm";
 import { FormField } from "@/types/form";
 import { useLoading } from "@/hooks/useLoading";
+import { getCsrfToken } from "@/lib/api";
 
 const verifyEmailSchema = z.object({
   token: z.string().min(1, { message: "Verification token is required." }),
@@ -39,14 +40,17 @@ function VerifyEmailContent() {
       setSuccess(false);
 
       const API_URL = process.env.NEXT_PUBLIC_API_URL;
+      const csrfToken = getCsrfToken();
 
       try {
         const res = await fetch(`${API_URL}/api/v1/auth/verify-email/`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            ...(csrfToken && { "X-CSRFToken": csrfToken }),
           },
           body: JSON.stringify(values),
+          credentials: "include",
         });
 
         if (res.ok) {

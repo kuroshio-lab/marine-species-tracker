@@ -184,19 +184,18 @@ class ResearcherProfileSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """Validate required researcher fields."""
+        errors = {}
+
         if not data.get("institution_name"):
-            raise serializers.ValidationError(
-                {"institution_name": "Institution name is required."}
-            )
+            errors["institution_name"] = "Institution name is required."
 
         if not data.get("research_focus") or len(data["research_focus"]) == 0:
-            raise serializers.ValidationError(
-                {
-                    "research_focus": (
-                        "Please select at least one research focus area."
-                    )
-                }
+            errors["research_focus"] = (
+                "Please select at least one research focus area."
             )
+
+        if errors:
+            raise serializers.ValidationError(errors)
 
         # Validate ORCID format if provided
         orcid = data.get("orcid")

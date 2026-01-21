@@ -2,7 +2,7 @@ import axios, { AxiosError, AxiosResponse } from "axios";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-function getCsrfToken() {
+export function getCsrfToken() {
   const name = "csrftoken";
   if (typeof document === "undefined") {
     return null;

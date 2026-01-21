@@ -127,7 +127,6 @@ export default function ShadcnDynamicForm<T extends FieldValues>({
   defaultValues,
   cardClass = "w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md",
   additionalLinks,
-  onFieldChange,
 }: DynamicFormProps<T> & {
   cardClass?: string;
   additionalLinks?: Array<{ text: string; href: string }>;

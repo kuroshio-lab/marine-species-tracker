@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import AuthLayout from "@/components/AuthLayout";
 import ShadcnDynamicForm from "@/components/ShadcnDynamicForm";
+import { getCsrfToken } from "@/lib/api";
 import { FormField } from "@/types/form";
 
 const researcherProfileSchema = z.object({
@@ -54,7 +55,10 @@ export default function CompleteResearcherProfilePage() {
           const userData = await res.json();
 
           // If not a pending researcher or profile already complete, redirect
-          if (userData.role !== "researcher_pending") {
+          if (
+            userData.role !== "researcher_pending" ||
+            !userData.needs_researcher_profile_completion
+          ) {
             router.push("/");
           }
         } else {
@@ -133,15 +137,17 @@ export default function CompleteResearcherProfilePage() {
     setSuccess(false);
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL;
+    const csrfToken = getCsrfToken();
 
     try {
       const res = await fetch(
         `${API_URL}/api/v1/auth/researcher/complete-profile/`,
         {
           method: "PATCH",
-          credentials: "include", // Use cookie-based auth
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
+            ...(csrfToken && { "X-CSRFToken": csrfToken }),
           },
           body: JSON.stringify(values),
         },
