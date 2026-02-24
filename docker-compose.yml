@@ -41,6 +41,8 @@ services:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
+      # Local design system override — comment out to use the npm version instead
+      # - ../kuroshio-design-system/packages/components:/app/node_modules/@kuroshio-lab/components
     ports:
       - "3000:3000"
     environment:

@@ -16,7 +16,7 @@ import { GeoJsonFeature } from "../types/geojson";
 
 import { Observation } from "../types/observation";
 import { fetchMapObservations } from "../lib/observation";
-import { MiniObservationCard } from "./MiniObservationCard";
+import { MiniObservationCard } from "@kuroshio-lab/components";
 
 interface MapComponentProps {
   selectedObservation: Observation | null;
