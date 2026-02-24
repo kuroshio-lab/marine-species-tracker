@@ -12,8 +12,8 @@ import {
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { Button } from "./ui/button";
 import {
+  Button,
   Form,
   FormControl,
   FormDescription,
@@ -21,16 +21,14 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "./ui/form";
-import { Input } from "./ui/input";
-import {
+  Input,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "./ui/select";
-import { Textarea } from "./ui/textarea";
+  Textarea,
+} from "@kuroshio-lab/ui";
 import { DynamicFormProps, FormField } from "../types/form";
 
 function renderFieldControl(

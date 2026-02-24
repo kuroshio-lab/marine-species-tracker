@@ -12,11 +12,10 @@ import {
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { MiniObservationCard } from "@kuroshio-lab/components";
 import { GeoJsonFeature } from "../types/geojson";
-
 import { Observation } from "../types/observation";
 import { fetchMapObservations } from "../lib/observation";
-import { MiniObservationCard } from "./MiniObservationCard";
 
 interface MapComponentProps {
   selectedObservation: Observation | null;
@@ -387,7 +386,7 @@ export default function MapComponent({
                       commonName: feature.properties.commonName ?? null,
                       observationDatetime:
                         feature.properties.observationDatetime,
-                      locationName: feature.properties.locationName ?? null,
+                      locationName: feature.properties.locationName ?? "",
                       machineObservation:
                         feature.properties.machineObservation ?? null,
                       source: feature.properties.source,

@@ -6,10 +6,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "./ui/dialog";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import SpeciesSearch from "./SpeciesSearch";
+  Button,
+  Input,
+} from "@kuroshio-lab/ui";
+import { SpeciesSearch } from "@kuroshio-lab/components";
+import { searchSpecies } from "../lib/species";
 
 interface FilterModalProps {
   isOpen: boolean;
@@ -102,6 +103,7 @@ export default function FilterModal({
                 id="species-search"
                 value={selectedSpecies}
                 onChange={setSelectedSpecies}
+                onSearch={searchSpecies}
                 placeholder="Search for species..."
               />
             </label>

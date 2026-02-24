@@ -5,7 +5,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
-import { useUser } from "@/components/UserProvider";
+import { useUser } from "@kuroshio-lab/components";
 import ShadcnDynamicForm from "@/components/ShadcnDynamicForm";
 import { FormField } from "@/types/form";
 import { useLoading } from "@/hooks/useLoading";

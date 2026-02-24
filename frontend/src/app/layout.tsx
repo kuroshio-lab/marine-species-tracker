@@ -3,10 +3,9 @@
 import "../styles/globals.css";
 import React from "react";
 import { Inter } from "next/font/google";
-import { UserProvider } from "../components/UserProvider";
+import { UserProvider } from "@kuroshio-lab/components";
 import AppContent from "./AppContent";
 import { LoadingProvider } from "../hooks/useLoading";
-import GlobalLoader from "../components/GlobalLoader";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -28,10 +27,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <UserProvider>
+        <UserProvider apiUrl={process.env.NEXT_PUBLIC_API_URL}>
           <LoadingProvider>
             <AppContent>{children}</AppContent>
-            <GlobalLoader />
           </LoadingProvider>
         </UserProvider>
       </body>
