@@ -386,7 +386,7 @@ export default function MapComponent({
                       commonName: feature.properties.commonName ?? null,
                       observationDatetime:
                         feature.properties.observationDatetime,
-                      locationName: feature.properties.locationName ?? null,
+                      locationName: feature.properties.locationName ?? "",
                       machineObservation:
                         feature.properties.machineObservation ?? null,
                       source: feature.properties.source,

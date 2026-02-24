@@ -3,9 +3,14 @@
 "use client";
 
 import React from "react";
-import { DNA } from "react-loader-spinner";
+import dynamic from "next/dynamic";
 import { GlobalLoader } from "@kuroshio-lab/components";
 import { useLoading } from "../hooks/useLoading";
+
+const DNA = dynamic(
+  () => import("react-loader-spinner").then((m) => ({ default: m.DNA })),
+  { ssr: false },
+);
 
 function DNALoader() {
   return (

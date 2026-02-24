@@ -15,7 +15,6 @@ import {
   UserRoleBadge,
   useUser,
 } from "@kuroshio-lab/components";
-import { DNA } from "react-loader-spinner";
 import FilterModal from "../components/FilterModal";
 import { useLoading } from "../hooks/useLoading";
 import {
@@ -28,6 +27,11 @@ import { searchSpecies } from "../lib/species";
 
 const DynamicMapComponent = dynamic(
   () => import("../components/MapComponent"),
+  { ssr: false },
+);
+
+const DNA = dynamic(
+  () => import("react-loader-spinner").then((m) => ({ default: m.DNA })),
   { ssr: false },
 );
 
@@ -92,7 +96,7 @@ interface ObservationFormData {
   temperature?: number | null;
   visibility?: number | null;
   notes?: string | null;
-  sex?: string;
+  sex?: "male" | "female" | "unknown";
 }
 
 type TrackerObservationModalProps = Omit<
@@ -166,6 +170,18 @@ function TrackerObservationModal({
   );
 }
 
+// The local Observation uses `null` for optional fields while the design system
+// expects `undefined`. This adapter normalises the two shapes at the boundary.
+async function fetchBoundObservations() {
+  const observations = await fetchUserObservations();
+  return observations.map(({ commonName, image, username, ...rest }) => ({
+    ...rest,
+    commonName: commonName ?? undefined,
+    image: image ?? undefined,
+    username: username ?? undefined,
+  }));
+}
+
 export default function Home() {
   const { startLoading, stopLoading } = useLoading();
   const { user, loading, logout } = useUser();
@@ -219,7 +235,7 @@ export default function Home() {
           ObservationFilterAndSortComponent={ObservationFilterAndSort}
           LoaderComponent={BoundLoader}
           MapComponent={DynamicMapComponent}
-          onFetchObservations={fetchUserObservations}
+          onFetchObservations={fetchBoundObservations}
           onDeleteObservation={deleteObservation}
         />
       </div>

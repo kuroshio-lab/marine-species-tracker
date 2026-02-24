@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
-    "@kuroshio-lab/components": "^0.2.5",
+    "@kuroshio-lab/components": "^0.2.8",
     "@kuroshio-lab/styles": "^0.2.0",
     "@kuroshio-lab/ui": "^0.2.3",
     "@radix-ui/react-dialog": "^1.1.15",
