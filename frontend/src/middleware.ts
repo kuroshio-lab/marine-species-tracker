@@ -48,9 +48,8 @@ export async function middleware(request: NextRequest) {
     // and redirect them if they try to access other pages
     const userData = await res.json();
     if (
-      userData.role === "researcher_pending" ||
-      (userData.needs_researcher_profile_completion &&
-        pathname !== "/complete-researcher-profile")
+      userData.needs_researcher_profile_completion &&
+      pathname !== "/complete-researcher-profile"
     ) {
       // Redirect pending researchers to complete their profile
       return NextResponse.redirect(
