@@ -86,7 +86,30 @@ ssh-keygen -t rsa -b 4096 -f ~/.ssh/species-tracker
 ```bash
 cd infra/terraform
 cp personal.tfvars.example personal.tfvars
-# Edit personal.tfvars with your SSH public key and Resend API key
+# Edit personal.tfvars with your SSH public key, Resend API key, and AMI ID
+```
+
+Required fields in `personal.tfvars`:
+- `ssh_public_key` — contents of `~/.ssh/species-tracker.pub`
+- `resend_api_key` — your Resend API key
+- `ami_id` — the AMI to use for the EC2 instance (see note below)
+
+**First deploy:** look up the latest Ubuntu 22.04 AMI for `eu-west-3`:
+```bash
+aws ec2 describe-images \
+  --owners 099720109477 \
+  --filters "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*" \
+            "Name=virtualization-type,Values=hvm" \
+  --query 'sort_by(Images, &CreationDate)[-1].ImageId' \
+  --output text
+```
+
+**Existing instance:** always pin to the AMI already running to avoid replacement:
+```bash
+aws ec2 describe-instances \
+  --filters "Name=tag:Name,Values=species-tracker-app" \
+  --query 'Reservations[0].Instances[0].ImageId' \
+  --output text
 ```
 
 ### 3. Deploy Infrastructure
@@ -152,7 +175,9 @@ chmod +x deploy.sh migrate.sh
 - No NAT Gateway (cost savings!)
 
 ### Compute
-- EC2 t3.small instance
+- EC2 t3.micro instance
+- AMI pinned via `ami_id` variable to prevent accidental replacement
+- `user_data_replace_on_change = false` — user data changes never trigger instance replacement
 - Docker + Docker Compose pre-installed
 - Nginx with Let's Encrypt SSL
 - Elastic IP (static IP address)
@@ -225,7 +250,15 @@ Apply:
 terraform apply -var-file="personal.tfvars"
 ```
 
-**Note:** This causes downtime as the instance is replaced.
+**Note:** Changing `instance_type` causes downtime as the instance must be stopped and restarted. Keep `ami_id` set to the currently running AMI to avoid triggering a full replacement (data loss).
+
+### Sync Terraform State with AWS
+
+If the Terraform state has drifted from reality (e.g. after manual changes or a previous failed apply), refresh without making changes:
+
+```bash
+terraform apply -refresh-only -var-file="personal.tfvars"
+```
 
 ### Update Infrastructure
 
@@ -328,6 +361,21 @@ docker-compose restart nginx
 - Multi-AZ RDS deployment
 
 ## 🚨 Troubleshooting
+
+### `terraform plan` Shows Instance Replacement
+
+If the plan shows `aws_instance.app must be replaced` with an AMI change, your `ami_id` in `personal.tfvars` doesn't match what's actually running. Fix it:
+
+```bash
+# Get the real AMI from AWS
+aws ec2 describe-instances \
+  --filters "Name=tag:Name,Values=species-tracker-app" \
+  --query 'Reservations[0].Instances[0].ImageId' \
+  --output text
+
+# Update personal.tfvars with that value, then sync state
+terraform apply -refresh-only -var-file="personal.tfvars"
+```
 
 ### Services Won't Start
 

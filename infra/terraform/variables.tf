@@ -50,3 +50,8 @@ variable "resend_api_key" {
   type        = string
   sensitive   = true
 }
+
+variable "ami_id" {
+  description = "AMI ID for the EC2 instance. Pin this to a specific value to prevent Terraform from replacing the instance when a new Ubuntu AMI is published. Get the current value with: aws ec2 describe-instances --instance-ids <id> --query 'Reservations[0].Instances[0].ImageId' --output text"
+  type        = string
+}

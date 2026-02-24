@@ -163,21 +163,10 @@ resource "aws_secretsmanager_secret_version" "db_password" {
 # EC2 Instance
 # =============================================================================
 
-# Get latest Ubuntu AMI
-data "aws_ami" "ubuntu" {
-  most_recent = true
-  owners      = ["099720109477"]
-
-  filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-}
+# AMI is pinned via var.ami_id to prevent accidental EC2 instance replacement.
+# To find the current instance's AMI:
+#   aws ec2 describe-instances --instance-ids <id> \
+#     --query 'Reservations[0].Instances[0].ImageId' --output text
 
 # Key pair for SSH access
 resource "aws_key_pair" "deployer" {
@@ -329,7 +318,7 @@ resource "aws_secretsmanager_secret_version" "resend_api" {
 
 # EC2 Instance
 resource "aws_instance" "app" {
-  ami                    = data.aws_ami.ubuntu.id
+  ami                    = var.ami_id
   instance_type          = var.instance_type
   key_name               = aws_key_pair.deployer.key_name
   subnet_id              = aws_subnet.public[0].id
@@ -354,7 +343,7 @@ resource "aws_instance" "app" {
 
   }))
 
-  user_data_replace_on_change = true
+  user_data_replace_on_change = false
 
   root_block_device {
     volume_size = var.volume_size
