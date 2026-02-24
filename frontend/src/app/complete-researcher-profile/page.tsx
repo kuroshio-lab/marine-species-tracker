@@ -35,8 +35,6 @@ type ProfileFormValues = z.infer<typeof researcherProfileSchema>;
 export default function CompleteResearcherProfilePage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [autoApproved, setAutoApproved] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const router = useRouter();
 
@@ -131,59 +129,55 @@ export default function CompleteResearcherProfilePage() {
     },
   ];
 
-  const handleSubmit = useCallback(async (values: ProfileFormValues) => {
-    setLoading(true);
-    setError("");
-    setSuccess(false);
+  const handleSubmit = useCallback(
+    async (values: ProfileFormValues) => {
+      setLoading(true);
+      setError("");
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL;
-    const csrfToken = getCsrfToken();
+      const API_URL = process.env.NEXT_PUBLIC_API_URL;
+      const csrfToken = getCsrfToken();
 
-    try {
-      const res = await fetch(
-        `${API_URL}/api/v1/auth/researcher/complete-profile/`,
-        {
-          method: "PATCH",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-            ...(csrfToken && { "X-CSRFToken": csrfToken }),
+      try {
+        const res = await fetch(
+          `${API_URL}/api/v1/auth/researcher/complete-profile/`,
+          {
+            method: "PATCH",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              ...(csrfToken && { "X-CSRFToken": csrfToken }),
+            },
+            body: JSON.stringify(values),
           },
-          body: JSON.stringify(values),
-        },
-      );
+        );
 
-      if (res.ok) {
-        const data = await res.json();
-        setSuccess(true);
-
-        // Check if user was auto-approved
-        if (data.message?.includes("automatically verified")) {
-          setAutoApproved(true);
+        if (res.ok) {
+          router.push("/");
+        } else {
+          const errorData = await res.json();
+          // eslint-disable-next-line no-console
+          console.error(
+            "Profile completion failed, status:",
+            res.status,
+            "body:",
+            errorData,
+          );
+          setError(
+            errorData.detail ||
+              errorData.institution_name?.[0] ||
+              errorData.research_focus?.[0] ||
+              "Failed to complete profile. Please try again.",
+          );
         }
-      } else {
-        const errorData = await res.json();
-        // eslint-disable-next-line no-console
-        console.error(
-          "Profile completion failed, status:",
-          res.status,
-          "body:",
-          errorData,
-        );
-        setError(
-          errorData.detail ||
-            errorData.institution_name?.[0] ||
-            errorData.research_focus?.[0] ||
-            "Failed to complete profile. Please try again.",
-        );
+      } catch (err) {
+        console.error("Network error during profile completion:", err); // eslint-disable-line no-console
+        setError("Network error. Please try again.");
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error("Network error during profile completion:", err); // eslint-disable-line no-console
-      setError("Network error. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [router],
+  );
 
   if (checkingAuth) {
     return (
@@ -195,78 +189,9 @@ export default function CompleteResearcherProfilePage() {
     );
   }
 
-  if (success) {
-    return (
-      <AuthLayout>
-        <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-lg">
-          <div className="text-center">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-[#30C39E] to-[#0077BA] rounded-full flex items-center justify-center mb-4">
-              <svg
-                className="w-8 h-8 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-            </div>
-            <h2 className="text-3xl font-bold text-[#0D1B2A]">
-              {autoApproved ? "Profile Verified!" : "Profile Complete!"}
-            </h2>
-          </div>
-
-          <div className="space-y-4">
-            {autoApproved ? (
-              <div className="bg-[#E6F7F3] border border-[#30C39E] rounded-lg p-4">
-                <h3 className="font-semibold text-[#30C39E] mb-2">
-                  ✓ Automatically Verified
-                </h3>
-                <p className="text-sm text-[#1E2D3A]">
-                  Your institutional email domain is trusted! Your account has
-                  been automatically verified as a Community Researcher. You can
-                  now validate observations.
-                </p>
-              </div>
-            ) : (
-              <div className="bg-[#FFF6E1] border border-[#FFCF5C] rounded-lg p-4">
-                <h3 className="font-semibold text-[#0D1B2A] mb-2">
-                  ⏱️ Pending Review
-                </h3>
-                <p className="text-sm text-[#1E2D3A]">
-                  Your profile is complete! Our team will review your
-                  credentials within 2-5 business days. You&apos;ll receive an
-                  email notification once approved.
-                </p>
-              </div>
-            )}
-
-            <p className="text-center text-[#1E2D3A]">
-              You can track your verification status from your homepage.
-            </p>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => router.push("/")}
-              className="flex-1 px-4 py-2 bg-[#0077BA] hover:bg-[#005A8D] text-white rounded-lg font-medium transition-colors"
-            >
-              Go to Dashboard
-            </button>
-          </div>
-        </div>
-      </AuthLayout>
-    );
-  }
-
   return (
     <AuthLayout>
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-2xl mx-auto">
         <div className="mb-6 bg-[#E8FAFF] border border-[#21C6E3] rounded-lg p-4">
           <div className="flex items-start">
             <span className="text-2xl mr-3">📋</span>
