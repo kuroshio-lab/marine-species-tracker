@@ -4,7 +4,6 @@
 
 import React, { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { useLoading } from "../hooks/useLoading";
 import {
   Header,
   UserObservationSection,
@@ -18,6 +17,7 @@ import {
 } from "@kuroshio-lab/components";
 import { DNA } from "react-loader-spinner";
 import FilterModal from "../components/FilterModal";
+import { useLoading } from "../hooks/useLoading";
 import {
   fetchUserObservations,
   deleteObservation,
@@ -31,9 +31,33 @@ const DynamicMapComponent = dynamic(
   { ssr: false },
 );
 
+type BoundSpeciesSearchProps = Omit<
+  React.ComponentProps<typeof SpeciesSearch>,
+  "onSearch"
+>;
+
 // Bind SpeciesSearch with the local search function
-function BoundSpeciesSearch(props: any) {
-  return <SpeciesSearch {...props} onSearch={searchSpecies} />;
+function BoundSpeciesSearch({
+  value,
+  onChange,
+  onBlur,
+  disabled,
+  placeholder,
+  error,
+  id,
+}: BoundSpeciesSearchProps) {
+  return (
+    <SpeciesSearch
+      value={value}
+      onChange={onChange}
+      onBlur={onBlur}
+      disabled={disabled}
+      placeholder={placeholder}
+      error={error}
+      id={id}
+      onSearch={searchSpecies}
+    />
+  );
 }
 
 // DNA loader for the Loader component
@@ -55,13 +79,40 @@ function BoundLoader({ isLoading }: { isLoading: boolean }) {
   return <Loader isLoading={isLoading} LoaderComponent={DNALoaderComponent} />;
 }
 
+interface ObservationFormData {
+  speciesName: string;
+  commonName?: string | null;
+  locationName: string;
+  latitude: number;
+  longitude: number;
+  observationDatetime: string;
+  depthMin?: number | null;
+  depthMax?: number | null;
+  bathymetry?: number | null;
+  temperature?: number | null;
+  visibility?: number | null;
+  notes?: string | null;
+  sex?: string;
+}
+
+type TrackerObservationModalProps = Omit<
+  React.ComponentProps<typeof ObservationModal>,
+  "onSubmit" | "SpeciesSearchComponent"
+>;
+
 // Wrapper for ObservationModal that binds tracker-specific API logic
-function TrackerObservationModal(props: any) {
+function TrackerObservationModal({
+  mode,
+  observation,
+  isOpen,
+  onClose,
+  onObservationUpserted,
+}: TrackerObservationModalProps) {
   const { user } = useUser();
 
-  const handleSubmit = async (data: any) => {
-    if (props.mode === "edit" && props.observation) {
-      await updateObservation(props.observation.id, {
+  const handleSubmit = async (data: ObservationFormData) => {
+    if (mode === "edit" && observation) {
+      await updateObservation(observation.id, {
         speciesName: data.speciesName,
         commonName: data.commonName || null,
         locationName: data.locationName,
@@ -104,7 +155,11 @@ function TrackerObservationModal(props: any) {
 
   return (
     <ObservationModal
-      {...props}
+      isOpen={isOpen}
+      onClose={onClose}
+      onObservationUpserted={onObservationUpserted}
+      mode={mode}
+      observation={observation}
       onSubmit={handleSubmit}
       SpeciesSearchComponent={BoundSpeciesSearch}
     />
