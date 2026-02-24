@@ -25,3 +25,5 @@ ssh_allowed_ipv6 = [
 ]
 # Secrets (REQUIRED)
 resend_api_key = "re_...."
+
+ami_id = "ami-..."
