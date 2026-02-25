@@ -1,8 +1,10 @@
-# Marine Species Tracker - Infrastructure
+# Marine Species Tracker — Infrastructure
 
 Simple, cost-effective infrastructure for the Marine Species Tracker application.
 
-## 🎯 Architecture Overview
+---
+
+## Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -13,7 +15,7 @@ Simple, cost-effective infrastructure for the Marine Species Tracker application
              │
              ▼
 ┌─────────────────────────────────────────────┐
-│ EC2 Instance (t3.small)                     │
+│ EC2 Instance (t3.micro)                     │
 │ ┌─────────────────────────────────────────┐ │
 │ │ Nginx (HTTPS with Let's Encrypt)        │ │
 │ └─────────────────────────────────────────┘ │
@@ -26,54 +28,52 @@ Simple, cost-effective infrastructure for the Marine Species Tracker application
 │ ┌─────────────────────────────────────────┐ │
 │ │ Database (PostgreSQL + PostGIS Docker)  │ │
 │ └─────────────────────────────────────────┘ │
-└────────────┬────────────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────────────┐
-│ RDS PostgreSQL (db.t4g.micro)               │
-│  - PostGIS enabled                          │
-│  - 20GB storage                             │
-│  - 7-day automated backups                  │
 └─────────────────────────────────────────────┘
 ```
 
-## 💰 Cost Breakdown
+The database runs as a Docker container on the EC2 instance, with data persisted via Docker volumes on EBS. There is no managed RDS instance.
 
-**Monthly Cost: ~$35**
+---
+
+## Cost Breakdown
+
+**Monthly Cost: ~$15**
 
 | Resource | Type | Cost/Month |
-|----------|------|------------|
-| EC2 | t3.micro / t4g.micro | ~$7-10 |
-| RDS | Managed Instance | **$0 (Moved to EC2)** |
+|---|---|---|
+| EC2 | t3.micro | ~$8 |
 | Public IP | IPv4 Fee | ~$3.60 |
 | EBS | 30GB gp3 | ~$3 |
 | Route53 | DNS + queries | ~$1 |
 | Data Transfer | Minimal | ~$1 |
-| **Total** | | **~$35** |
+| **Total** | | **~$17** |
 
-**vs. ECS + ALB setup: ~$93/month**
-**Savings: $58/month (62% cheaper!)**
+**vs. ECS + ALB setup: ~$93/month — 80% cheaper**
 
-## 📁 Structure
+---
+
+## Structure
 
 ```
 infra/
 ├── terraform/
-│   ├── backend.tf              # S3 backend config
-│   ├── main.tf                 # EC2 + RDS infrastructure
+│   ├── backend.tf              # S3 remote state config
+│   ├── main.tf                 # EC2 + networking + IAM + secrets
 │   ├── user-data.sh            # EC2 initialization script
 │   ├── variables.tf            # Input variables
 │   ├── outputs.tf              # Terraform outputs
 │   ├── personal.tfvars.example # Example config
 │   └── personal.tfvars         # Your config (gitignored)
 ├── scripts/
-│   ├── deploy.sh               # Deploy to EC2
-│   └── migrate.sh              # Run migrations
+│   ├── deploy.sh               # Deploy application to EC2
+│   └── migrate.sh              # Run Django migrations on EC2
 └── docs/
-    └── DEPLOYMENT.md           # Detailed guide
+    └── DEPLOYMENT.MD           # Detailed deployment guide
 ```
 
-## 🚀 Quick Deploy
+---
+
+## Quick Deploy
 
 ### 1. Generate SSH Key
 
@@ -86,15 +86,19 @@ ssh-keygen -t rsa -b 4096 -f ~/.ssh/species-tracker
 ```bash
 cd infra/terraform
 cp personal.tfvars.example personal.tfvars
-# Edit personal.tfvars with your SSH public key, Resend API key, and AMI ID
+# Edit personal.tfvars with your values
 ```
 
 Required fields in `personal.tfvars`:
-- `ssh_public_key` — contents of `~/.ssh/species-tracker.pub`
-- `resend_api_key` — your Resend API key
-- `ami_id` — the AMI to use for the EC2 instance (see note below)
 
-**First deploy:** look up the latest Ubuntu 22.04 AMI for `eu-west-3`:
+| Variable | Description |
+|---|---|
+| `ssh_public_key` | Contents of `~/.ssh/species-tracker.pub` |
+| `resend_api_key` | Your Resend API key for email |
+| `ami_id` | AMI ID to use for the EC2 instance |
+| `ssh_allowed_ips` | CIDR list for SSH access (restrict in production!) |
+
+**First deploy** — look up the latest Ubuntu 22.04 AMI for `eu-west-3`:
 ```bash
 aws ec2 describe-images \
   --owners 099720109477 \
@@ -104,7 +108,7 @@ aws ec2 describe-images \
   --output text
 ```
 
-**Existing instance:** always pin to the AMI already running to avoid replacement:
+**Existing instance** — always pin to the AMI already running to avoid replacement:
 ```bash
 aws ec2 describe-instances \
   --filters "Name=tag:Name,Values=species-tracker-app" \
@@ -166,46 +170,60 @@ chmod +x deploy.sh migrate.sh
 - API: https://api.species.kuroshio-lab.com
 - Admin: https://api.species.kuroshio-lab.com/admin/
 
-## 📦 What Gets Created
+---
+
+## What Gets Created
 
 ### Networking
 - VPC (10.0.0.0/16)
 - 2 public subnets across 2 AZs
 - Internet Gateway
-- No NAT Gateway (cost savings!)
+- No NAT Gateway (cost savings)
 
 ### Compute
-- EC2 t3.micro instance
+- EC2 t3.micro instance (configurable via `instance_type`)
 - AMI pinned via `ami_id` variable to prevent accidental replacement
 - `user_data_replace_on_change = false` — user data changes never trigger instance replacement
-- Docker + Docker Compose pre-installed
+- Docker + Docker Compose pre-installed via `user-data.sh`
 - Nginx with Let's Encrypt SSL
-- Elastic IP (static IP address)
-- IAM role for S3 and SES access
+- Elastic IP (stable public IP)
 
-### Database (Local Docker)
-- PostgreSQL 14 with PostGIS (Docker Container)
-- Data persisted via Docker Volumes on EBS
-- Daily internal backups via cron (optional)
-- Integrated into application network
+### Database (Docker on EC2)
+- PostgreSQL 14 with PostGIS (Docker container on the EC2 instance)
+- Data persisted via Docker volumes on EBS
+- Manual backups via `pg_dump` (see Backup section)
+
+### IAM
+- EC2 instance role with policies for:
+  - **SSM** — AWS Systems Manager access
+  - **S3** — media upload/download access
+  - **SES** — sending emails
+  - **Route53** — DNS record updates
+  - **Secrets Manager** — reading DB password, Django secret key, Resend API key
+
+### Secrets (AWS Secrets Manager)
+- `species-tracker-db-password-*` — PostgreSQL password (auto-generated)
+- `species-tracker-django-secret-*` — Django `SECRET_KEY` (auto-generated)
+- `species-tracker-resend-api-*` — Resend API key (from `personal.tfvars`)
 
 ### Security
-- Security groups (EC2, RDS)
-- IAM role and policies
-- Secrets Manager for credentials
-- Let's Encrypt SSL certificates
+- EC2 security group (SSH, HTTP, HTTPS)
+- Let's Encrypt SSL certificates (auto-renewed every 12 hours)
 
 ### DNS
-- Route53 records for:
-  - species.kuroshio-lab.com
-  - api.species.kuroshio-lab.com
+- Route53 records:
+  - `species.kuroshio-lab.com` → Frontend
+  - `api.species.kuroshio-lab.com` → Backend API
 
 ### Monitoring
-- CloudWatch alarms (CPU, RDS)
-- CloudWatch Logs integration
-- Container health checks
+- CloudWatch Log Group: `/species-tracker/app` (7-day retention)
+- SNS topic: `species-tracker-alarms`
+- CloudWatch Alarms:
+  - EC2 CPU > 80%
 
-## 🔧 Common Operations
+---
+
+## Common Operations
 
 ### Deploy Code Changes
 
@@ -250,11 +268,11 @@ Apply:
 terraform apply -var-file="personal.tfvars"
 ```
 
-**Note:** Changing `instance_type` causes downtime as the instance must be stopped and restarted. Keep `ami_id` set to the currently running AMI to avoid triggering a full replacement (data loss).
+> **Note:** Changing `instance_type` causes downtime as the instance must be stopped and restarted. Keep `ami_id` set to the currently running AMI to avoid triggering a full replacement (data loss).
 
 ### Sync Terraform State with AWS
 
-If the Terraform state has drifted from reality (e.g. after manual changes or a previous failed apply), refresh without making changes:
+If the Terraform state has drifted from reality (e.g. after manual changes or a previous failed apply):
 
 ```bash
 terraform apply -refresh-only -var-file="personal.tfvars"
@@ -267,12 +285,14 @@ cd infra/terraform
 terraform apply -var-file="personal.tfvars"
 ```
 
-## 🔐 Security
+---
+
+## Security
 
 ### SSH Access
 - Key-based authentication only
-- Restrict SSH to specific IPs via `ssh_allowed_ips`
-- Default allows from anywhere (⚠️ change for production!)
+- Restrict SSH to specific IPs via `ssh_allowed_ips` in `personal.tfvars`
+- Default allows from anywhere (change for production!)
 
 ### Application Security
 - HTTPS enforced via Nginx
@@ -282,24 +302,21 @@ terraform apply -var-file="personal.tfvars"
 - CORS properly configured
 
 ### Database Security
-- Not publicly accessible
-- Only accessible from EC2 instance
-- Encrypted at rest
-- Encrypted in transit
+- Not exposed outside the Docker network
+- Only accessible from within the EC2 instance
+- Password stored in AWS Secrets Manager
 
 ### Secrets
 - Stored in AWS Secrets Manager
 - Never in git or environment files
-- Automatically injected into containers
+- Automatically injected into containers at startup
 
-## 📊 Monitoring
+---
+
+## Monitoring
 
 ### CloudWatch Alarms
-- EC2 CPU > 80%
-- RDS CPU > 80%
-- RDS storage < 2GB
-
-All alarms send to SNS topic (configured in global infra).
+- EC2 CPU > 80% → SNS topic `species-tracker-alarms`
 
 ### Logs
 - Container logs: `/var/lib/docker/containers/*/*.log`
@@ -313,7 +330,9 @@ docker-compose logs -f frontend
 docker-compose logs -f nginx
 ```
 
-## 🔄 SSL Certificate Management
+---
+
+## SSL Certificate Management
 
 Certificates auto-renew via certbot container every 12 hours.
 
@@ -325,46 +344,50 @@ docker-compose run --rm certbot renew
 docker-compose restart nginx
 ```
 
-## 💾 Backup & Recovery
+---
+
+## Backup & Recovery
 
 ### Database Backups
-- RDS automated backups: 7-day retention
-- Backup window: 03:00-04:00 UTC
-- Point-in-time recovery enabled
 
-### Manual Backup
-- Manual Backup: `docker exec species-db pg_dump -U postgres marine_tracker > backup.sql`
-- Snapshot: Automated EBS snapshots (configured via AWS Backup or Lifecycle Manager)
+The database runs in Docker — there are no automated RDS backups. Take manual backups with:
+
+```bash
+docker exec species-db pg_dump -U postgres marine_tracker > backup.sql
+```
 
 ### Application Files
-- Docker volumes persist data
-- Stored on EBS (encrypted)
-- Survives container restarts
+- Docker volumes persist data on EBS (encrypted, 30GB gp3)
+- Data survives container restarts and redeployments
 
-## 📈 Scaling Options
+---
 
-### Current Setup (Dev/Small)
-- **Cost:** ~$35/month
-- **Capacity:** Small traffic
-- **Single point of failure**
+## Scaling Options
+
+### Current Setup (~$17/month)
+- Single EC2 t3.micro
+- Docker-based PostgreSQL on EBS
+- Single point of failure
 
 ### Medium Scale (~$80/month)
 - Upgrade to t3.medium EC2 (~$30)
-- Upgrade to db.t4g.small RDS (~$30)
+- Migrate DB to RDS db.t4g.small (~$30)
 - Add CloudFront CDN (~$20)
 
 ### Production Scale (~$150/month)
-- Add Application Load Balancer (~$20)
+- Application Load Balancer (~$20)
 - Multiple EC2 instances behind ALB
 - Larger RDS instance
 - Auto-scaling group
 - Multi-AZ RDS deployment
 
-## 🚨 Troubleshooting
+---
+
+## Troubleshooting
 
 ### `terraform plan` Shows Instance Replacement
 
-If the plan shows `aws_instance.app must be replaced` with an AMI change, your `ami_id` in `personal.tfvars` doesn't match what's actually running. Fix it:
+If the plan shows `aws_instance.app must be replaced` due to an AMI change, your `ami_id` in `personal.tfvars` doesn't match what's running. Fix it:
 
 ```bash
 # Get the real AMI from AWS
@@ -385,11 +408,7 @@ cd /opt/species-tracker
 docker-compose logs
 ```
 
-Common issues:
-- Environment variables not set
-- Database connection failed
-- Out of memory
-- Port conflicts
+Common causes: missing environment variables, database connection failure, out of memory, port conflicts.
 
 ### SSL Certificate Issues
 
@@ -404,11 +423,13 @@ docker-compose restart nginx
 
 ### Database Connection Failed
 
+```bash
 # Check if database container is running
 docker ps | grep species-db
 
 # Check database logs
 docker-compose logs db
+```
 
 ### Out of Disk Space
 
@@ -421,33 +442,38 @@ docker system df
 docker system prune -a --volumes
 ```
 
-## 🗑️ Cleanup
+---
 
-To destroy everything:
+## Cleanup
+
+To destroy all AWS resources:
 
 ```bash
 cd infra/terraform
 terraform destroy -var-file="personal.tfvars"
 ```
 
-⚠️ **Warning:** This deletes all data including the database!
+> **Warning:** This deletes all data including the database!
 
-## 📚 Documentation
+---
 
-- [Detailed Deployment Guide](docs/DEPLOYMENT.md)
-- [Docker Compose Setup](#) (auto-configured on EC2)
-- [Nginx Configuration](#) (auto-configured on EC2)
-- [Global Infrastructure](https://github.com/your-org/infra)
+## Documentation
 
-## 🔗 Related
+- [Detailed Deployment Guide](docs/DEPLOYMENT.MD)
 
-- Backend: [../backend/README.md](../backend/README.md)
-- Frontend: [../frontend/README.md](../frontend/README.md)
-- Docker Compose: [../docker-compose.yml](../docker-compose.yml)
+---
 
-## 💡 Tips
+## Related
 
-1. **SSH Config:** Add to `~/.ssh/config`:
+- [Backend README](../backend/README.md)
+- [Frontend README](../frontend/README.MD)
+- [Docker Compose](../docker-compose.yml)
+
+---
+
+## Tips
+
+1. **SSH Config** — add to `~/.ssh/config` for convenient access:
    ```
    Host species-tracker
      HostName [EC2_IP]
@@ -455,7 +481,7 @@ terraform destroy -var-file="personal.tfvars"
      IdentityFile ~/.ssh/species-tracker
    ```
 
-2. **Alias for deploy:** Add to `~/.bashrc`:
+2. **Deploy alias** — add to `~/.bashrc`:
    ```bash
    alias deploy-species="cd /path/to/repo/infra/scripts && ./deploy.sh"
    ```
@@ -468,16 +494,7 @@ terraform destroy -var-file="personal.tfvars"
      --metrics BlendedCost
    ```
 
-## 📞 Support
-
-For issues:
-1. Check Docker logs: `docker-compose logs`
-2. Check Nginx: `docker exec species-nginx nginx -t`
-3. Check SSL: `docker-compose run --rm certbot certificates`
-4. Check database: `docker exec species-backend python manage.py check --database default`
-5. Check CloudWatch alarms in AWS Console
-
-## 🎯 Future Enhancements
+## Future Enhancements
 
 - [ ] Add CloudFront CDN
 - [ ] Implement auto-scaling
