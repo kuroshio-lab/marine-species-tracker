@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://species.kuroshio-lab.com/sitemap.xml
