@@ -15,7 +15,6 @@ import {
   UserRoleBadge,
   useUser,
 } from "@kuroshio-lab/components";
-import FilterModal from "../components/FilterModal";
 import { useLoading } from "../hooks/useLoading";
 import {
   fetchUserObservations,
@@ -240,7 +239,7 @@ export default function Home() {
         user={user}
         loading={loading}
         onLogout={logout}
-        FilterModalComponent={FilterModal}
+        onSpeciesSearch={searchSpecies}
         UserRoleBadgeComponent={UserRoleBadge}
         onExport={handleExport}
         observationCount={observationCount}
