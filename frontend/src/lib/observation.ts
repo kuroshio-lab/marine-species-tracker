@@ -123,6 +123,37 @@ interface FetchMapObservationsParams {
   maxDate?: string;
 }
 
+export async function exportObservations(params?: {
+  speciesName?: string | null;
+  commonName?: string | null;
+  minDate?: string | null;
+  maxDate?: string | null;
+}): Promise<void> {
+  const query = new URLSearchParams();
+  if (params?.speciesName) query.append("species_name", params.speciesName);
+  if (params?.commonName) query.append("common_name", params.commonName);
+  if (params?.minDate) query.append("min_date", params.minDate);
+  if (params?.maxDate) query.append("max_date", params.maxDate);
+
+  const qs = query.toString();
+  const response = await api.get(
+    `v1/observations/export/${qs ? `?${qs}` : ""}`,
+    {
+      responseType: "blob",
+    },
+  );
+
+  const blob = new Blob([response.data], { type: "application/json" });
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = "marine_observations_export.json";
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(objectUrl);
+}
+
 export async function fetchMapObservations(
   params?: FetchMapObservationsParams,
 ): Promise<GeoJsonFeatureCollection> {

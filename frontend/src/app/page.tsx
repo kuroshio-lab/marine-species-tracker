@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   Header,
@@ -22,6 +22,7 @@ import {
   deleteObservation,
   createObservation,
   updateObservation,
+  exportObservations,
 } from "../lib/observation";
 import { searchSpecies } from "../lib/species";
 
@@ -170,21 +171,13 @@ function TrackerObservationModal({
   );
 }
 
-// The local Observation uses `null` for optional fields while the design system
-// expects `undefined`. This adapter normalises the two shapes at the boundary.
-async function fetchBoundObservations() {
-  const observations = await fetchUserObservations();
-  return observations.map(({ commonName, image, username, ...rest }) => ({
-    ...rest,
-    commonName: commonName ?? undefined,
-    image: image ?? undefined,
-    username: username ?? undefined,
-  }));
-}
-
 export default function Home() {
   const { startLoading, stopLoading } = useLoading();
   const { user, loading, logout } = useUser();
+
+  const [observationCount, setObservationCount] = useState<number | undefined>(
+    undefined,
+  );
 
   const [activeFilters, setActiveFilters] = useState<{
     speciesName: string | null;
@@ -192,6 +185,34 @@ export default function Home() {
     minDate: string | null;
     maxDate: string | null;
   }>({ speciesName: null, commonName: null, minDate: null, maxDate: null });
+
+  // The local Observation uses `null` for optional fields while the design system
+  // expects `undefined`. This adapter normalises the two shapes at the boundary.
+  // Defined inside the component so it can update observationCount state.
+  const fetchBoundObservations = useCallback(async () => {
+    const observations = await fetchUserObservations();
+    setObservationCount(observations.length);
+    return observations.map(({ commonName, image, username, ...rest }) => ({
+      ...rest,
+      commonName: commonName ?? undefined,
+      image: image ?? undefined,
+      username: username ?? undefined,
+    }));
+  }, []);
+
+  const handleExport = async () => {
+    try {
+      await exportObservations({
+        speciesName: activeFilters.speciesName,
+        commonName: activeFilters.commonName,
+        minDate: activeFilters.minDate,
+        maxDate: activeFilters.maxDate,
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to export observations:", error);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -221,6 +242,8 @@ export default function Home() {
         onLogout={logout}
         FilterModalComponent={FilterModal}
         UserRoleBadgeComponent={UserRoleBadge}
+        onExport={handleExport}
+        observationCount={observationCount}
       />
 
       <div className="flex-1 w-full p-4 overflow-hidden">

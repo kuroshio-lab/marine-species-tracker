@@ -102,7 +102,7 @@ export default function SigninPage() {
           { text: "Forgot Password?", href: "/forgot-password" },
           { text: "Need to verify email?", href: "/verify-email" },
         ]}
-        cardClass="w-full max-w-md p-8 space-y-6 bg-white rounded-lg"
+        cardClass="w-full max-w-md rounded-2xl border border-white/10 bg-brand-primary-900/90 p-8 shadow-2xl backdrop-blur-md"
       />
     </AuthLayout>
   );

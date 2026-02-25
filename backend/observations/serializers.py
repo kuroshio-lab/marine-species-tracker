@@ -100,3 +100,32 @@ class ObservationGeoSerializer(GeoFeatureModelSerializer):
         updated_instance.save()
 
         return updated_instance
+
+
+class ObservationExportSerializer(ObservationGeoSerializer):
+    """
+    Slimmed-down serializer for the JSON export.
+    Identical to ObservationGeoSerializer except the internal `user` ID is
+    omitted — it is redundant (every record in the file belongs to the
+    requesting user) and leaks an internal database identifier.
+    """
+
+    class Meta(ObservationGeoSerializer.Meta):
+        fields = (
+            "id",
+            "speciesName",
+            "commonName",
+            "observationDatetime",
+            "location",
+            "locationName",
+            "depthMin",
+            "depthMax",
+            "bathymetry",
+            "temperature",
+            "image",
+            "visibility",
+            "notes",
+            "validated",
+            "source",
+            "sex",
+        )
