@@ -182,8 +182,11 @@ export default function CompleteResearcherProfilePage() {
   if (checkingAuth) {
     return (
       <AuthLayout>
-        <div className="w-full max-w-md p-8 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0077BA]" />
+        <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-brand-primary-900/90 p-8 shadow-2xl backdrop-blur-md">
+          <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-brand-primary-500 via-brand-primary-200 to-brand-primary-500" />
+          <div className="flex items-center justify-center">
+            <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-brand-primary-400" />
+          </div>
         </div>
       </AuthLayout>
     );
@@ -191,15 +194,15 @@ export default function CompleteResearcherProfilePage() {
 
   return (
     <AuthLayout>
-      <div className="w-full max-w-2xl mx-auto">
-        <div className="mb-6 bg-[#E8FAFF] border border-[#21C6E3] rounded-lg p-4">
+      <div className="mx-auto w-full max-w-2xl">
+        <div className="mb-6 rounded-lg border border-brand-primary-400/30 bg-brand-primary-900/70 p-4 backdrop-blur-sm">
           <div className="flex items-start">
-            <span className="text-2xl mr-3">📋</span>
+            <span className="mr-3 text-xl text-brand-primary-300">📋</span>
             <div>
-              <h3 className="font-semibold text-[#0077BA] mb-1">
+              <h3 className="mb-1 font-semibold text-brand-primary-200">
                 Complete Your Researcher Profile
               </h3>
-              <p className="text-sm text-[#1E2D3A]">
+              <p className="text-sm text-white/70">
                 Provide your institutional details to complete verification.
                 Fields marked with * are required.
               </p>

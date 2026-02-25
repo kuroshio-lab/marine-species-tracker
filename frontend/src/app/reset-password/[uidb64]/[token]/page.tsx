@@ -125,17 +125,38 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
   if (success) {
     return (
       <AuthLayout>
-        <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg">
-          <h2 className="text-3xl font-bold text-center text-gray-900">
-            Password Reset Successful
-          </h2>
-          <div className="space-y-4">
-            <p className="text-center text-gray-600">
-              Your password has been successfully reset.
-            </p>
-            <p className="text-center text-sm text-gray-500">
-              You will be redirected to the sign-in page shortly.
-            </p>
+        <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-brand-primary-900/90 p-8 shadow-2xl backdrop-blur-md">
+          <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-brand-primary-500 via-brand-primary-200 to-brand-primary-500" />
+
+          <div className="space-y-6">
+            <div className="text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-brand-primary-400 to-brand-primary-700">
+                <svg
+                  className="h-8 w-8 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+              <h2 className="bg-gradient-to-r from-white via-brand-primary-100 to-brand-primary-300 bg-clip-text text-3xl font-bold text-transparent">
+                Password Reset Successful
+              </h2>
+            </div>
+            <div className="space-y-2">
+              <p className="text-center text-white/70">
+                Your password has been successfully reset.
+              </p>
+              <p className="text-center text-sm text-white/40">
+                You will be redirected to the sign-in page shortly.
+              </p>
+            </div>
           </div>
         </div>
       </AuthLayout>
@@ -154,7 +175,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
         loading={isLoading}
         linkText="Remember your password?"
         linkHref="/sign-in"
-        cardClass="w-full max-w-md p-8 space-y-6 bg-white rounded-lg"
+        cardClass="w-full max-w-md rounded-2xl border border-white/10 bg-brand-primary-900/90 p-8 shadow-2xl backdrop-blur-md"
       />
     </AuthLayout>
   );

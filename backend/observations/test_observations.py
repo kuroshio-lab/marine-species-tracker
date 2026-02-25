@@ -246,3 +246,130 @@ class ObservationAPITestCase(APITestCase):
         url = reverse("observation-validate", kwargs={"pk": 9999})
         response = self.client.post(url)
         self.assertEqual(response.status_code, 404)
+
+
+class ObservationExportTestCase(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="exporter@test.com",
+            username="exportertest",
+            password="StrongPassword123",
+            is_active=True,
+            email_verified=True,
+        )
+        TrustedEmailDomain.objects.create(
+            domain="test.com",
+            organization_name="Test Organization",
+            auto_approve_to_community=True,
+        )
+        self.login_url = reverse("token_obtain_pair")
+        self.export_url = reverse("observation-export")
+
+    def authenticate(self):
+        response = self.client.post(
+            self.login_url,
+            {"email": "exporter@test.com", "password": "StrongPassword123"},
+            format="json",
+        )
+        token = response.data.get("access")
+        assert token is not None, f"Login failed. Response: {response.data}"
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer " + token)
+
+    def make_observation(
+        self, user=None, species_name="Dolphin", observation_datetime=None
+    ):
+        return Observation.objects.create(
+            user=user or self.user,
+            species_name=species_name,
+            location=Point(0, 0),
+            observation_datetime=observation_datetime
+            or datetime.datetime.now(datetime.timezone.utc),
+            location_name="Blue Sea",
+            depth_min=15,
+            temperature=21,
+            visibility=30,
+            notes="note",
+        )
+
+    def test_export_requires_auth(self):
+        response = self.client.get(self.export_url)
+        self.assertIn(
+            response.status_code,
+            [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN],
+        )
+
+    def test_export_returns_attachment(self):
+        self.authenticate()
+        response = self.client.get(self.export_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("attachment", response.get("Content-Disposition", ""))
+        self.assertIn("application/json", response.get("Content-Type", ""))
+
+    def test_export_contains_geojson_feature_collection(self):
+        self.authenticate()
+        self.make_observation()
+        response = self.client.get(self.export_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        import json as json_module
+
+        data = json_module.loads(response.content)
+        self.assertEqual(data.get("type"), "FeatureCollection")
+        self.assertIn("features", data)
+        self.assertIsInstance(data["features"], list)
+
+    def test_export_only_returns_own_observations(self):
+        self.authenticate()
+        other_user = User.objects.create_user(
+            email="other@test.com",
+            username="otheruser",
+            password="StrongPassword123",
+            is_active=True,
+            email_verified=True,
+        )
+        self.make_observation(user=self.user, species_name="Whale")
+        self.make_observation(user=other_user, species_name="Shark")
+        response = self.client.get(self.export_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        import json as json_module
+
+        data = json_module.loads(response.content)
+        self.assertEqual(len(data["features"]), 1)
+        self.assertEqual(
+            data["features"][0]["properties"]["speciesName"], "Whale"
+        )
+
+    def test_export_respects_species_name_filter(self):
+        self.authenticate()
+        self.make_observation(species_name="Dolphin")
+        self.make_observation(species_name="Shark")
+        response = self.client.get(
+            self.export_url, {"species_name": "Dolphin"}
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        import json as json_module
+
+        data = json_module.loads(response.content)
+        self.assertEqual(len(data["features"]), 1)
+        self.assertEqual(
+            data["features"][0]["properties"]["speciesName"], "Dolphin"
+        )
+
+    def test_export_respects_date_filters(self):
+        self.authenticate()
+        early = datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)
+        late = datetime.datetime(2025, 6, 1, tzinfo=datetime.timezone.utc)
+        self.make_observation(species_name="Early", observation_datetime=early)
+        self.make_observation(species_name="Late", observation_datetime=late)
+
+        response = self.client.get(
+            self.export_url,
+            {"min_date": "2025-01-01", "max_date": "2025-12-31"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        import json as json_module
+
+        data = json_module.loads(response.content)
+        self.assertEqual(len(data["features"]), 1)
+        self.assertEqual(
+            data["features"][0]["properties"]["speciesName"], "Late"
+        )

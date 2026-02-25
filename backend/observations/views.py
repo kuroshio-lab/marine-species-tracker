@@ -1,3 +1,6 @@
+import json
+
+from django.http import HttpResponse
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -5,7 +8,7 @@ from rest_framework_gis.filters import InBBoxFilter
 
 from .models import Observation
 from .permissions import IsVerifiedResearcher
-from .serializers import ObservationGeoSerializer
+from .serializers import ObservationExportSerializer, ObservationGeoSerializer
 
 
 class ObservationListCreateView(generics.ListCreateAPIView):
@@ -48,16 +51,39 @@ class ObservationDetailView(generics.RetrieveUpdateDestroyAPIView):
         return Observation.objects.filter(user=user)
 
 
-# Export (not yet implemented)
+# Export
 class ObservationExportView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        # TODO: Implement export to JSON/CSV
-        return Response(
-            {"detail": "Export endpoint not yet implemented."},
-            status=status.HTTP_501_NOT_IMPLEMENTED,
+        queryset = Observation.objects.filter(user=request.user)
+
+        species_name = request.GET.get("species_name")
+        common_name = request.GET.get("common_name")
+        min_date = request.GET.get("min_date")
+        max_date = request.GET.get("max_date")
+
+        if species_name:
+            queryset = queryset.filter(species_name__iexact=species_name)
+        if common_name:
+            queryset = queryset.filter(common_name__iexact=common_name)
+        if min_date:
+            queryset = queryset.filter(observation_datetime__gte=min_date)
+        if max_date:
+            queryset = queryset.filter(observation_datetime__lte=max_date)
+
+        serializer = ObservationExportSerializer(
+            queryset, many=True, context={"request": request}
         )
+
+        response = HttpResponse(
+            json.dumps(serializer.data),
+            content_type="application/json",
+        )
+        response["Content-Disposition"] = (
+            'attachment; filename="marine_observations_export.json"'
+        )
+        return response
 
 
 # Only admin/researcher can validate

@@ -109,73 +109,77 @@ export default function SignupPage() {
   if (success) {
     return (
       <AuthLayout>
-        <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-lg">
-          <div className="text-center">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-[#21C6E3] to-[#0077BA] rounded-full flex items-center justify-center mb-4">
-              <svg
-                className="w-8 h-8 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                />
-              </svg>
-            </div>
-            <h2 className="text-3xl font-bold text-[#0D1B2A]">
-              Check Your Email
-            </h2>
-          </div>
+        <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-brand-primary-900/90 p-8 shadow-2xl backdrop-blur-md">
+          <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-brand-primary-500 via-brand-primary-200 to-brand-primary-500" />
 
-          <div className="space-y-4">
-            <p className="text-center text-[#1E2D3A]">
-              We&apos;ve sent a verification email to your address. Please check
-              your inbox and click the verification link to activate your
-              account.
-            </p>
-
-            {selectedRole === "researcher_pending" && (
-              <div className="bg-[#E8FAFF] border border-[#21C6E3] rounded-lg p-4">
-                <h3 className="font-semibold text-[#0077BA] mb-2">
-                  📋 Next Steps for Researchers:
-                </h3>
-                <ol className="text-sm text-[#1E2D3A] space-y-1 list-decimal list-inside">
-                  <li>Click the verification link in your email</li>
-                  <li>Complete your researcher profile</li>
-                  <li>Our team will review your credentials (2-5 days)</li>
-                  <li>
-                    You&apos;ll receive approval notification and can start
-                    validating observations!
-                  </li>
-                </ol>
+          <div className="space-y-6">
+            <div className="text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-brand-primary-400 to-brand-primary-700">
+                <svg
+                  className="h-8 w-8 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
+                </svg>
               </div>
-            )}
+              <h2 className="bg-gradient-to-r from-white via-brand-primary-100 to-brand-primary-300 bg-clip-text text-3xl font-bold text-transparent">
+                Check Your Email
+              </h2>
+            </div>
 
-            <p className="text-center text-sm text-[#A7B2B7]">
-              Didn&apos;t receive the email? Check your spam folder or{" "}
+            <div className="space-y-4">
+              <p className="text-center text-white/70">
+                We&apos;ve sent a verification email to your address. Please
+                check your inbox and click the verification link to activate
+                your account.
+              </p>
+
+              {selectedRole === "researcher_pending" && (
+                <div className="rounded-lg border border-brand-primary-400/30 bg-brand-primary-800/50 p-4">
+                  <h3 className="mb-2 font-semibold text-brand-primary-200">
+                    Next Steps for Researchers:
+                  </h3>
+                  <ol className="list-decimal list-inside space-y-1 text-sm text-white/70">
+                    <li>Click the verification link in your email</li>
+                    <li>Complete your researcher profile</li>
+                    <li>Our team will review your credentials (2-5 days)</li>
+                    <li>
+                      You&apos;ll receive approval notification and can start
+                      validating observations!
+                    </li>
+                  </ol>
+                </div>
+              )}
+
+              <p className="text-center text-sm text-white/40">
+                Didn&apos;t receive the email? Check your spam folder or{" "}
+                <button
+                  type="button"
+                  onClick={() => setSuccess(false)}
+                  className="font-medium text-brand-primary-300 transition-colors hover:text-white"
+                >
+                  try again
+                </button>
+                .
+              </p>
+            </div>
+
+            <div className="text-center">
               <button
                 type="button"
-                onClick={() => setSuccess(false)}
-                className="text-[#0077BA] hover:underline"
+                onClick={() => router.push("/sign-in")}
+                className="text-sm font-medium text-brand-primary-300 transition-colors hover:text-white"
               >
-                try again
+                Back to Sign In
               </button>
-              .
-            </p>
-          </div>
-
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={() => router.push("/sign-in")}
-              className="text-[#A7B2B7] hover:text-[#0077BA] text-sm"
-            >
-              Back to Sign In
-            </button>
+            </div>
           </div>
         </div>
       </AuthLayout>
@@ -186,14 +190,14 @@ export default function SignupPage() {
     <AuthLayout>
       <div className="w-full max-w-md">
         {selectedRole === "researcher_pending" && (
-          <div className="mb-6 bg-[#FFF6E1] border border-[#FFCF5C] rounded-lg p-4">
+          <div className="mb-6 rounded-lg border border-brand-primary-400/30 bg-brand-primary-900/70 p-4 backdrop-blur-sm">
             <div className="flex items-start">
-              <span className="text-2xl mr-3">ℹ️</span>
+              <span className="mr-3 text-xl text-brand-primary-300">ℹ</span>
               <div>
-                <h3 className="font-semibold text-[#0D1B2A] mb-1">
+                <h3 className="mb-1 font-semibold text-brand-primary-200">
                   Researcher Account
                 </h3>
-                <p className="text-sm text-[#1E2D3A]">
+                <p className="text-sm text-white/70">
                   Use your institutional email (.edu, .gov, research org) to
                   speed up verification. You&apos;ll complete your profile after
                   verifying your email.

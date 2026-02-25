@@ -72,31 +72,35 @@ export default function ForgotPasswordPage() {
   if (success) {
     return (
       <AuthLayout>
-        <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg">
-          <h2 className="text-3xl font-bold text-center text-gray-900">
-            Check Your Email
-          </h2>
-          <div className="space-y-4">
-            <p className="text-center text-gray-600">
-              We&apos;ve sent you an email with instructions to reset your
-              password.
-            </p>
-            <p className="text-center text-sm text-gray-500">
-              If you don&apos;t see the email in your inbox, please check your
-              spam folder.
-            </p>
-          </div>
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={() => {
-                setSuccess(false);
-                setError("");
-              }}
-              className="text-blue-600 hover:underline text-sm"
-            >
-              Try a different email address
-            </button>
+        <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-brand-primary-900/90 p-8 shadow-2xl backdrop-blur-md">
+          <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-brand-primary-500 via-brand-primary-200 to-brand-primary-500" />
+
+          <div className="space-y-6">
+            <h2 className="bg-gradient-to-r from-white via-brand-primary-100 to-brand-primary-300 bg-clip-text text-center text-3xl font-bold text-transparent">
+              Check Your Email
+            </h2>
+            <div className="space-y-4">
+              <p className="text-center text-white/70">
+                We&apos;ve sent you an email with instructions to reset your
+                password.
+              </p>
+              <p className="text-center text-sm text-white/40">
+                If you don&apos;t see the email in your inbox, please check your
+                spam folder.
+              </p>
+            </div>
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setSuccess(false);
+                  setError("");
+                }}
+                className="text-sm font-medium text-brand-primary-300 transition-colors hover:text-white"
+              >
+                Try a different email address
+              </button>
+            </div>
           </div>
         </div>
       </AuthLayout>
@@ -115,7 +119,7 @@ export default function ForgotPasswordPage() {
         loading={isLoading}
         linkText="Remember your password?"
         linkHref="/sign-in"
-        cardClass="w-full max-w-md p-8 space-y-6 bg-white rounded-lg"
+        cardClass="w-full max-w-md rounded-2xl border border-white/10 bg-brand-primary-900/90 p-8 shadow-2xl backdrop-blur-md"
       />
     </AuthLayout>
   );

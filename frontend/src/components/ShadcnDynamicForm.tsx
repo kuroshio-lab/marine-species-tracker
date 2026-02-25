@@ -12,6 +12,7 @@ import {
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
+import { cn } from "@kuroshio-lab/styles";
 import {
   Button,
   Form,
@@ -31,27 +32,41 @@ import {
 } from "@kuroshio-lab/ui";
 import { DynamicFormProps, FormField } from "../types/form";
 
+const inputClass =
+  "bg-white/10 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-brand-primary-400/50 focus-visible:border-white/40";
+
 function renderFieldControl(
   field: FormField,
   formField: any,
   loading: boolean,
+  onFieldChange?: (name: string, value: any) => void,
 ) {
   switch (field.type) {
     case "select":
       return (
         <Select
-          onValueChange={formField.onChange}
+          onValueChange={(value) => {
+            formField.onChange(value);
+            onFieldChange?.(field.name, value);
+          }}
           defaultValue={formField.value}
           disabled={loading}
         >
-          <SelectTrigger>
+          <SelectTrigger className={inputClass}>
             <SelectValue
               placeholder={field.placeholder || `Select a ${field.label}`}
             />
           </SelectTrigger>
-          <SelectContent position="popper" className="z-[9999]">
+          <SelectContent
+            position="popper"
+            className="z-[9999] !border-white/20 !bg-brand-primary-900 !text-white"
+          >
             {field.options?.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
+              <SelectItem
+                key={option.value}
+                value={option.value}
+                className="!text-white focus:!bg-white/10 focus:!text-white"
+              >
                 {option.label}
               </SelectItem>
             ))}
@@ -63,13 +78,18 @@ function renderFieldControl(
         <Textarea
           placeholder={field.placeholder}
           {...formField}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+            formField.onChange(e);
+            onFieldChange?.(field.name, e.target.value);
+          }}
           disabled={loading}
           maxLength={field.maxLength}
+          className={inputClass}
         />
       );
     case "multi-select":
       return (
-        <div className="flex flex-wrap gap-2 p-3 border rounded-md bg-white min-h-[40px]">
+        <div className="flex flex-wrap gap-2 p-3 border border-white/20 rounded-md bg-white/5 min-h-[40px]">
           {field.options?.map((option) => {
             const isSelected =
               Array.isArray(formField.value) &&
@@ -86,13 +106,15 @@ function renderFieldControl(
                     ? currentValues.filter((v: string) => v !== option.value)
                     : [...currentValues, option.value];
                   formField.onChange(nextValues);
+                  onFieldChange?.(field.name, nextValues);
                 }}
                 disabled={loading}
-                className={`px-3 py-1 text-sm rounded-full border transition-all ${
+                className={cn(
+                  "px-3 py-1 text-sm rounded-full border transition-all",
                   isSelected
-                    ? "bg-[#0077BA] text-white border-[#0077BA] shadow-sm"
-                    : "bg-gray-50 text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-100"
-                }`}
+                    ? "bg-brand-primary-500 text-white border-brand-primary-400 shadow-sm"
+                    : "bg-white/10 text-white/70 border-white/20 hover:bg-white/20 hover:text-white",
+                )}
               >
                 {option.label}
               </button>
@@ -106,7 +128,12 @@ function renderFieldControl(
           type={field.type}
           placeholder={field.placeholder}
           {...formField}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+            formField.onChange(e);
+            onFieldChange?.(field.name, e.target.value);
+          }}
           disabled={loading}
+          className={inputClass}
         />
       );
   }
@@ -123,8 +150,9 @@ export default function ShadcnDynamicForm<T extends FieldValues>({
   linkText,
   linkHref,
   defaultValues,
-  cardClass = "w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md",
+  cardClass = "w-full rounded-2xl border border-white/10 bg-brand-primary-900/90 p-8 shadow-2xl backdrop-blur-md",
   additionalLinks,
+  onFieldChange,
 }: DynamicFormProps<T> & {
   cardClass?: string;
   additionalLinks?: Array<{ text: string; href: string }>;
@@ -134,7 +162,6 @@ export default function ShadcnDynamicForm<T extends FieldValues>({
     defaultValues:
       defaultValues ||
       (Object.fromEntries(
-        // Use defaultValues if provided
         fields.map((field) => {
           switch (field.type) {
             case "multi-select":
@@ -162,12 +189,16 @@ export default function ShadcnDynamicForm<T extends FieldValues>({
   }, [defaultValues, form]);
 
   return (
-    <div className={cardClass}>
-      <h2 className="text-3xl font-bold text-center text-gray-900">
+    <div className={cn(cardClass, "relative overflow-hidden")}>
+      {/* Top accent bar */}
+      <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-brand-primary-500 via-brand-primary-200 to-brand-primary-500" />
+
+      <h2 className="mb-6 bg-gradient-to-r from-white via-brand-primary-100 to-brand-primary-300 bg-clip-text text-center text-2xl font-bold text-transparent">
         {formTitle}
       </h2>
+
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
           {fields.map((field: FormField) => (
             <ShadcnFormField
               key={field.name}
@@ -175,12 +206,17 @@ export default function ShadcnDynamicForm<T extends FieldValues>({
               name={field.name as FieldPath<T>}
               render={({ field: formField }) => (
                 <FormItem>
-                  <FormLabel>{field.label}</FormLabel>
+                  <FormLabel className="text-white/80">{field.label}</FormLabel>
                   <FormControl>
-                    {renderFieldControl(field, formField, loading)}
+                    {renderFieldControl(
+                      field,
+                      formField,
+                      loading,
+                      onFieldChange,
+                    )}
                   </FormControl>
                   {(field.description || field.helperText) && (
-                    <FormDescription>
+                    <FormDescription className="text-brand-primary-100/50">
                       {field.description || field.helperText}
                     </FormDescription>
                   )}
@@ -189,29 +225,35 @@ export default function ShadcnDynamicForm<T extends FieldValues>({
               )}
             />
           ))}
-          {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-          <Button type="submit" className="w-full" disabled={loading}>
+          {error && <p className="text-center text-sm text-red-400">{error}</p>}
+          <Button
+            type="submit"
+            variant="addingObs"
+            className="w-full"
+            disabled={loading}
+          >
             {loading ? "Processing..." : submitButtonText}
           </Button>
         </form>
       </Form>
-      <div className="space-y-2">
+
+      <div className="mt-5 space-y-2">
         {linkText && linkHref && (
-          <p className="text-center text-sm text-gray-600">
+          <p className="text-center text-sm text-brand-primary-100/60">
             {linkText}{" "}
             <Link
               href={linkHref}
-              className="font-medium text-blue-600 hover:underline"
+              className="font-medium text-brand-primary-300 transition-colors hover:text-white"
             >
               {linkHref.includes("sign-up") ? "Sign up" : "Sign in"}
             </Link>
           </p>
         )}
         {additionalLinks?.map((link) => (
-          <p key={link.href} className="text-center text-sm text-gray-600">
+          <p key={link.href} className="text-center text-sm">
             <Link
               href={link.href}
-              className="font-medium text-blue-600 hover:underline"
+              className="font-medium text-brand-primary-300/80 transition-colors hover:text-white"
             >
               {link.text}
             </Link>
