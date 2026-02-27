@@ -1,14 +1,19 @@
 # species/tasks/utils/etl_cleaning.py
 import logging
 import re
+from datetime import date, datetime
+from typing import TYPE_CHECKING, Literal
+
 import pytz
 from dateutil import parser
-from datetime import datetime
+
+if TYPE_CHECKING:
+    from ..worms_api import WoRMSAPIClient
 
 logger = logging.getLogger(__name__)
 
 
-def clean_string_to_capital_capital(input_string):
+def clean_string_to_capital_capital(input_string: str | None) -> str | None:
     """
     Cleans a string to "Capital Capital" format.
     """
@@ -30,7 +35,7 @@ def clean_string_to_capital_capital(input_string):
     return cleaned_string if cleaned_string else None
 
 
-def to_float(value):
+def to_float(value: object) -> float | None:
     """Safely convert to float."""
     if value is None:
         return None
@@ -40,7 +45,9 @@ def to_float(value):
         return None
 
 
-def normalize_obis_depth(obs: dict):
+def normalize_obis_depth(
+    obs: dict[str, object],
+) -> tuple[float | None, float | None, float | None]:
     """Normalize OBIS depth fields."""
     raw_depth = obs.get("depth")
     raw_min = obs.get("minimumDepthInMeters")
@@ -64,7 +71,9 @@ def normalize_obis_depth(obs: dict):
     return depth_min, depth_max, bathymetry
 
 
-def get_harmonized_common_name(obis_record, worms_client):
+def get_harmonized_common_name(
+    obis_record: dict[str, object], worms_client: "WoRMSAPIClient"
+) -> str | None:
     """Get common name from OBIS or WoRMS."""
     obis_vernacular_name = obis_record.get("vernacularName")
 
@@ -80,7 +89,7 @@ def get_harmonized_common_name(obis_record, worms_client):
     return None
 
 
-def get_common_name_from_worms(scientific_name):
+def get_common_name_from_worms(scientific_name: str | None) -> str | None:
     """
     Get common name from WoRMS for GBIF records.
     Note: This is a simplified version. Full implementation would search by scientific name.
@@ -90,7 +99,9 @@ def get_common_name_from_worms(scientific_name):
     return None
 
 
-def parse_obis_event_date(obis_id: str, event_date_str: str):
+def parse_obis_event_date(
+    obis_id: str, event_date_str: str | None
+) -> tuple[datetime | None, date | None]:
     """Parse OBIS eventDate string."""
     observation_datetime = None
     observation_date = None
@@ -115,7 +126,7 @@ def parse_obis_event_date(obis_id: str, event_date_str: str):
     return observation_datetime, observation_date
 
 
-def parse_date_flexible(date_str):
+def parse_date_flexible(date_str: str | None) -> date | None:
     """
     Parse various date formats from GBIF/OBIS.
     Returns: date object or None
@@ -139,7 +150,7 @@ def parse_date_flexible(date_str):
         return None
 
 
-def standardize_sex(sex_value):
+def standardize_sex(sex_value: object) -> Literal["male", "female", "unknown"]:
     """Standardize sex value."""
     if not sex_value:
         return "unknown"
@@ -152,7 +163,9 @@ def standardize_sex(sex_value):
         return "unknown"
 
 
-def clean_scientific_name_for_worms_lookup(scientific_name):
+def clean_scientific_name_for_worms_lookup(
+    scientific_name: str | None,
+) -> str | None:
     """
     Cleans a scientific name string by removing text after the first
     occurrence of a comma (',') or an opening parenthesis '('.

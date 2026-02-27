@@ -1,5 +1,7 @@
 # species/tasks/gbif_etl.py
 import logging
+from typing import TypedDict
+
 from django.contrib.gis.geos import Point as DjangoPoint
 from django.db import transaction
 from species.models import CuratedObservation
@@ -15,6 +17,20 @@ from .utils.etl_cleaning import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class GBIFETLResult(TypedDict):
+    processed: int
+    saved: int
+    rejected: int
+    duplicates: int
+    rejection_reasons: dict[str, int]
+
+
+class GBIFOceanStats(TypedDict):
+    saved: int
+    processed: int
+
 
 gbif_client = GBIFAPIClient(default_limit=300)
 worms_client = WoRMSAPIClient()
@@ -40,14 +56,14 @@ _worms_cache = {}
 
 
 def fetch_and_store_gbif_data(
-    geometry_wkt=None,
-    taxon_key=None,
-    year=None,
-    limit=300,
-    offset=0,
-    strategy="obis_network",
-    ocean_label=None,
-):
+    geometry_wkt: str | None = None,
+    taxon_key: int | None = None,
+    year: int | None = None,
+    limit: int = 300,
+    offset: int = 0,
+    strategy: str = "obis_network",
+    ocean_label: str | None = None,
+) -> GBIFETLResult:
     """
     Main entry point for management commands. Supports year and enrichment.
     """
@@ -175,7 +191,7 @@ def fetch_and_store_gbif_data(
     return stats
 
 
-def sync_gbif_by_oceans(year=None, limit=200):
+def sync_gbif_by_oceans(year: int | None = None, limit: int = 200) -> GBIFOceanStats:
     """
     Wrapper to run the ETL across all defined oceans.
     """

@@ -1,6 +1,7 @@
 # species/tasks/obis_etl.py
 import logging
 import time
+from typing import TypedDict
 
 from django.conf import settings
 from django.contrib.gis.geos import Point
@@ -21,6 +22,15 @@ from .worms_api import WoRMSAPIClient
 
 logger = logging.getLogger(__name__)
 
+
+class OBISETLResult(TypedDict):
+    status: str
+    records_processed: int
+    new_records: int
+    duplicates: int
+    page: int
+
+
 obis_client = OBISAPIClient(
     base_url=getattr(
         settings, "OBIS_API_BASE_URL", "https://api.obis.org/v3/"
@@ -37,8 +47,12 @@ worms_client = WoRMSAPIClient(
 
 
 def fetch_and_store_obis_data(
-    geometry_wkt, taxonid=None, page=0, start_date=None, end_date=None
-):
+    geometry_wkt: str,
+    taxonid: int | None = None,
+    page: int = 0,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> OBISETLResult:
     """
     Fetch OBIS data and store with occurrence_id for deduplication.
     """
@@ -62,6 +76,7 @@ def fetch_and_store_obis_data(
                 "status": "completed",
                 "records_processed": 0,
                 "new_records": 0,
+                "duplicates": 0,
                 "page": page,
             }
 
@@ -199,12 +214,12 @@ def fetch_and_store_obis_data(
 
 
 def trigger_full_obis_refresh(
-    geometry_wkt,
-    taxonid=None,
-    start_date=None,
-    end_date=None,
-    max_pages=None,
-):
+    geometry_wkt: str,
+    taxonid: int | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    max_pages: int | None = None,
+) -> None:
     """
     Full or date-range OBIS refresh with pagination.
     """
