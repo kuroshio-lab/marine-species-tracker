@@ -27,7 +27,7 @@ sleep 5
 
 # Year range for full historical sync
 YEAR_START=2015
-YEAR_END=2025
+YEAR_END=2026
 
 # ============================================================
 # STEP 0: CLEAR EXISTING DATA
