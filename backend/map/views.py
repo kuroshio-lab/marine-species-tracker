@@ -96,13 +96,22 @@ def map_observations(request):
                     location__distance_lte=(point, distance_filter)
                 )
 
-            # Annotate with distance and order by distance from the center point
-            user_observations_queryset = user_observations_queryset.annotate(
-                distance=Distance("location", point)
-            ).order_by("distance")
-            curated_species_queryset = curated_species_queryset.annotate(
-                distance=Distance("location", point)
-            ).order_by("distance")
+                # Order by distance from the center point
+                user_observations_queryset = user_observations_queryset.annotate(
+                    distance=Distance("location", point)
+                ).order_by("distance")
+                curated_species_queryset = curated_species_queryset.annotate(
+                    distance=Distance("location", point)
+                ).order_by("distance")
+            else:
+                # Global view (no radius): random ordering to spread
+                # observations worldwide
+                user_observations_queryset = (
+                    user_observations_queryset.order_by("?")
+                )
+                curated_species_queryset = (
+                    curated_species_queryset.order_by("?")
+                )
 
         except (TypeError, ValueError) as e:
             print(f"Error in geo-filtering parameters: {e}")
@@ -120,13 +129,9 @@ def map_observations(request):
                 status=500,
             )
     else:
-        # Default ordering if no lat/lng for geographic ordering
-        user_observations_queryset = user_observations_queryset.order_by(
-            "-created_at"
-        )
-        curated_species_queryset = curated_species_queryset.order_by(
-            "-observation_date"
-        )
+        # No lat/lng provided: random ordering for global spread
+        user_observations_queryset = user_observations_queryset.order_by("?")
+        curated_species_queryset = curated_species_queryset.order_by("?")
 
     try:
         # Apply ratio and limit
