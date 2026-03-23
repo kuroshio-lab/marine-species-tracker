@@ -141,3 +141,33 @@ class TrustedEmailDomain(TimeStampedModel):
 
     def __str__(self):
         return f"{self.domain} ({self.organization_name})"
+
+    @classmethod
+    def find_matching_domain(cls, email_domain):
+        """
+        Find a TrustedEmailDomain matching the given email domain.
+        Supports both exact matches (e.g., 'mbari.org') and suffix matches
+        (e.g., 'edu' matches 'stanford.edu', 'mit.edu').
+        Returns the most specific (longest) match, or None.
+        """
+        from django.db.models import F, Value
+        from django.db.models.functions import Length
+
+        # Try exact match first
+        try:
+            return cls.objects.get(domain=email_domain)
+        except cls.DoesNotExist:
+            pass
+
+        # Try suffix match: find all trusted domains where the email domain
+        # ends with '.{trusted_domain}' (e.g., 'stanford.edu' ends with '.edu')
+        candidates = []
+        for td in cls.objects.all():
+            if email_domain.endswith(f".{td.domain}"):
+                candidates.append(td)
+
+        if not candidates:
+            return None
+
+        # Return the most specific (longest domain) match
+        return max(candidates, key=lambda td: len(td.domain))

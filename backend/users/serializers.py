@@ -74,22 +74,19 @@ class RegisterSerializer(serializers.ModelSerializer):
                 from .models import TrustedEmailDomain
 
                 domain = email.split("@")[-1].lower()
+                trusted_domain = TrustedEmailDomain.find_matching_domain(domain)
 
-                try:
-                    trusted_domain = TrustedEmailDomain.objects.get(
-                        domain=domain
+                if trusted_domain and trusted_domain.auto_approve_to_community:
+                    user.verification_notes = (
+                        f"Email domain {domain} matched trusted domain"
+                        f" '{trusted_domain.domain}'. Will auto-approve to"
+                        " Community tier after profile completion."
                     )
-                    if trusted_domain.auto_approve_to_community:
-                        user.verification_notes = (
-                            f"Email domain {domain} is whitelisted. Will"
-                            " auto-approve to Community tier after profile"
-                            " completion."
-                        )
-                        logger.info(
-                            f"User {email} registered with trusted domain"
-                            f" {domain}"
-                        )
-                except TrustedEmailDomain.DoesNotExist:
+                    logger.info(
+                        f"User {email} registered with trusted domain"
+                        f" {trusted_domain.domain}"
+                    )
+                else:
                     logger.info(
                         f"User {email} registered with non-whitelisted domain"
                         f" {domain}"
@@ -223,22 +220,19 @@ class ResearcherProfileSerializer(serializers.ModelSerializer):
         from .models import TrustedEmailDomain
 
         email_domain = instance.email.split("@")[-1].lower()
+        trusted_domain = TrustedEmailDomain.find_matching_domain(email_domain)
 
-        try:
-            trusted_domain = TrustedEmailDomain.objects.get(
-                domain=email_domain
+        if trusted_domain and trusted_domain.auto_approve_to_community:
+            instance.role = User.RESEARCHER_COMMUNITY
+            instance.verification_completed_at = timezone.now()
+            instance.verification_notes = (
+                "Auto-approved to Community tier based on trusted domain:"
+                f" '{trusted_domain.domain}' (matched {email_domain})"
             )
-            if trusted_domain.auto_approve_to_community:
-                instance.role = User.RESEARCHER_COMMUNITY
-                instance.verification_completed_at = timezone.now()
-                instance.verification_notes = (
-                    "Auto-approved to Community tier based on trusted domain:"
-                    f" {email_domain}"
-                )
-                logger.info(
-                    f"User {instance.email} auto-approved to Community tier"
-                )
-        except TrustedEmailDomain.DoesNotExist:
+            logger.info(
+                f"User {instance.email} auto-approved to Community tier"
+            )
+        else:
             # Remains pending, needs admin review
             logger.info(
                 f"User {instance.email} profile completed, awaiting admin"
