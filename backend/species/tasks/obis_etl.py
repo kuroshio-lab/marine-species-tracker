@@ -28,7 +28,7 @@ class OBISETLResult(TypedDict):
     records_processed: int
     new_records: int
     duplicates: int
-    page: int
+    next_after: str | None  # cursor for the next page
 
 
 obis_client = OBISAPIClient(
@@ -49,23 +49,26 @@ worms_client = WoRMSAPIClient(
 def fetch_and_store_obis_data(
     geometry_wkt: str,
     taxonid: int | None = None,
-    page: int = 0,
+    after: str | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
 ) -> OBISETLResult:
     """
-    Fetch OBIS data and store with occurrence_id for deduplication.
+    Fetch one page of OBIS data and store it.
+
+    Uses cursor-based pagination: pass `after=None` for the first page, then
+    pass the returned `next_after` value as `after` for each subsequent page.
     """
     logger.info(
-        f"Starting OBIS ETL for geometry: {geometry_wkt}, taxonid: {taxonid}, "
-        f"page: {page}, start_date: {start_date}, end_date: {end_date}"
+        f"Starting OBIS ETL — after: {after}, "
+        f"start_date: {start_date}, end_date: {end_date}"
     )
 
     try:
         obis_records, _ = obis_client.fetch_occurrences(
             geometry=geometry_wkt,
             taxonid=taxonid,
-            page=page,
+            after=after,
             start_date=start_date,
             end_date=end_date,
         )
@@ -77,7 +80,7 @@ def fetch_and_store_obis_data(
                 "records_processed": 0,
                 "new_records": 0,
                 "duplicates": 0,
-                "page": page,
+                "next_after": None,
             }
 
         new_records_count = 0
@@ -179,9 +182,7 @@ def fetch_and_store_obis_data(
                         dataset_name=obs.get("datasetName", "")[:255],
                     )
                     new_records_count += 1
-                    existing_occurrence_ids.add(
-                        occurrence_id
-                    )  # Update in-memory set
+                    existing_occurrence_ids.add(occurrence_id)
                     logger.debug(
                         f"Saved OBIS record: {occurrence_id} -"
                         f" {obs.get('scientificName')}"
@@ -194,10 +195,13 @@ def fetch_and_store_obis_data(
                     )
                     raise
 
+        # Cursor for the next page: the OBIS internal id of the last record
+        next_after = str(obis_records[-1]["id"]) if obis_records else None
+
         logger.info(
-            f"Finished OBIS ETL for page {page}. Processed:"
-            f" {len(obis_records)}, New: {new_records_count}, Skipped:"
-            f" {skipped_count}"
+            f"Finished OBIS ETL page (after={after}). Processed:"
+            f" {len(obis_records)}, New: {new_records_count},"
+            f" Skipped: {skipped_count}, Next after: {next_after}"
         )
 
         return {
@@ -205,7 +209,7 @@ def fetch_and_store_obis_data(
             "records_processed": len(obis_records),
             "new_records": new_records_count,
             "duplicates": skipped_count,
-            "page": page,
+            "next_after": next_after,
         }
 
     except Exception as e:
@@ -219,9 +223,17 @@ def trigger_full_obis_refresh(
     start_date: str | None = None,
     end_date: str | None = None,
     max_pages: int | None = None,
+    page_chunk_size: int | None = None,
 ) -> None:
     """
-    Full or date-range OBIS refresh with pagination.
+    Full or date-range OBIS refresh using cursor-based pagination.
+
+    The OBIS API uses `after=<last_record_id>` for pagination. Offset-based
+    pagination silently breaks for large result sets, always returning the
+    first page. Cursor-based pagination is reliable for any dataset size.
+
+    page_chunk_size: sleep between bursts of this many pages (useful for
+    rate limiting; does not affect correctness with cursor pagination).
     """
     refresh_type = "incremental" if (start_date or end_date) else "full"
     print(
@@ -230,12 +242,11 @@ def trigger_full_obis_refresh(
 
     page_size = obis_client.default_size
 
-    # Get total record count
-    initial_records, total_records = obis_client.fetch_occurrences(
+    # Get total record count (no cursor needed for the count request)
+    _, total_records = obis_client.fetch_occurrences(
         geometry=geometry_wkt,
         taxonid=taxonid,
         size=1,
-        page=0,
         start_date=start_date,
         end_date=end_date,
     )
@@ -251,15 +262,26 @@ def trigger_full_obis_refresh(
         print(f"Limiting to {max_pages} pages")
         total_pages = max_pages
 
+    after = None  # Start from the beginning
     for page_num in range(total_pages):
-        print(f"Processing page {page_num + 1} of {total_pages}...")
-        fetch_and_store_obis_data(
+        if page_chunk_size and page_num > 0 and page_num % page_chunk_size == 0:
+            print(f"Chunk boundary at page {page_num}, pausing 5s...")
+            time.sleep(5)
+
+        print(f"Processing page {page_num + 1} of {total_pages} (after={after})...")
+        result = fetch_and_store_obis_data(
             geometry_wkt,
             taxonid,
-            page_num,
+            after=after,
             start_date=start_date,
             end_date=end_date,
         )
-        time.sleep(1)  # API rate limiting
+
+        after = result["next_after"]
+        if after is None:
+            print("No more records returned by API. Stopping early.")
+            break
+
+        time.sleep(1)
 
     print(f"Finished {refresh_type} OBIS refresh.")

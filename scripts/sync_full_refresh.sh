@@ -38,7 +38,7 @@ echo "🗑️  Step 0/4: Clearing existing data..."
 echo "────────────────────────────────────────────────────"
 
 # Clear OBIS data
-docker-compose exec backend python -c "
+docker-compose exec backend python manage.py shell -c "
 from species.models import CuratedObservation
 obis_count = CuratedObservation.objects.filter(source='OBIS').count()
 deleted = CuratedObservation.objects.filter(source='OBIS').delete()
@@ -46,7 +46,7 @@ print(f'🗑️  Deleted {deleted[0]} OBIS records (was {obis_count})')
 "
 
 # Clear GBIF data
-docker-compose exec backend python -c "
+docker-compose exec backend python manage.py shell -c "
 from species.models import CuratedObservation
 gbif_count = CuratedObservation.objects.filter(source='GBIF').count()
 deleted = CuratedObservation.objects.filter(source='GBIF').delete()
@@ -54,7 +54,7 @@ print(f'🗑️  Deleted {deleted[0]} GBIF records (was {gbif_count})')
 "
 
 # Clear BOTH (merged) data
-docker-compose exec backend python -c "
+docker-compose exec backend python manage.py shell -c "
 from species.models import CuratedObservation
 both_count = CuratedObservation.objects.filter(source='BOTH').count()
 deleted = CuratedObservation.objects.filter(source='BOTH').delete()
@@ -69,14 +69,32 @@ echo ""
 # STEP 1: FULL OBIS SYNC
 # ============================================================
 
-echo "📡 Step 1/4: Full OBIS data sync (all historical data)..."
+echo "📡 Step 1/4: Full OBIS data sync (year by year, 10-page chunks)..."
 echo "────────────────────────────────────────────────────"
-echo "   Mode: FULL (no date filters, no page limit)"
-echo "   Coverage: Worldwide (default)"
+echo "   Year Range: $YEAR_START to $YEAR_END"
+echo "   Strategy: Year-scoped queries, paginated in 10-page bursts"
 echo ""
 
-docker-compose exec backend python manage.py refresh_obis_data \
-    --mode full
+# OBIS_PAGE_CHUNK: number of pages fetched per API burst.
+# Keep this low (≤10) — the OBIS API silently returns the first page again
+# for deep offsets when a large result set is streamed continuously.
+OBIS_PAGE_CHUNK=10
+
+for YEAR in $(seq $YEAR_START $YEAR_END); do
+    echo ""
+    echo "   📅 Processing year: $YEAR"
+    echo "   ────────────────────────────────────"
+
+    docker-compose exec backend python manage.py refresh_obis_data \
+        --mode full \
+        --start-date "${YEAR}-01-01" \
+        --end-date "${YEAR}-12-31" \
+        --page-chunk-size $OBIS_PAGE_CHUNK
+
+    echo "   ✅ Year $YEAR complete"
+
+    sleep 2
+done
 
 echo ""
 echo "✅ OBIS full sync complete"
