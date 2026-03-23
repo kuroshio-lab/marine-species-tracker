@@ -3,7 +3,6 @@
 import math
 from django.contrib.gis.geos import Point
 from django.contrib.gis.measure import D
-from django.contrib.gis.db.models.functions import Distance
 from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -40,7 +39,7 @@ def map_observations(request):
     min_date = request.GET.get("min_date")
     max_date = request.GET.get("max_date")
 
-    user_observations_queryset = Observation.objects.all()
+    user_observations_queryset = Observation.objects.select_related("user").all()
     # Filter out CuratedObservations with null locations
     curated_species_queryset = CuratedObservation.objects.exclude(
         location__isnull=True
@@ -96,13 +95,15 @@ def map_observations(request):
                     location__distance_lte=(point, distance_filter)
                 )
 
-                # Order by distance from the center point
-                user_observations_queryset = user_observations_queryset.annotate(
-                    distance=Distance("location", point)
-                ).order_by("distance")
-                curated_species_queryset = curated_species_queryset.annotate(
-                    distance=Distance("location", point)
-                ).order_by("distance")
+                # No ordering needed — map markers don't require
+                # distance sort, and skipping it avoids an expensive
+                # ST_Distance computation on every row
+                user_observations_queryset = (
+                    user_observations_queryset.order_by()
+                )
+                curated_species_queryset = (
+                    curated_species_queryset.order_by()
+                )
             else:
                 # Global view (no radius): random ordering to spread
                 # observations worldwide
