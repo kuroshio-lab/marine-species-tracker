@@ -203,6 +203,11 @@ resource "aws_iam_role_policy_attachment" "ssm_managed" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+resource "aws_iam_role_policy_attachment" "cloudwatch_agent" {
+  role       = aws_iam_role.ec2.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
 resource "aws_iam_role_policy" "ec2_route53" {
   name = "route53-record-update-access"
   role = aws_iam_role.ec2.id
@@ -403,9 +408,64 @@ resource "aws_cloudwatch_metric_alarm" "ec2_cpu" {
   statistic           = "Average"
   threshold           = "80"
   alarm_description   = "Alert when EC2 CPU exceeds 80%"
-  alarm_actions       = [aws_sns_topic.alarms.arn] // Changed from data.terraform_remote_state.global.outputs.sns_alarms_topic_arn
+  alarm_actions       = [aws_sns_topic.alarms.arn]
 
   dimensions = {
     InstanceId = aws_instance.app.id
+  }
+}
+
+# t3.micro is burstable — when credits hit 0, CPU is silently throttled to ~10%
+resource "aws_cloudwatch_metric_alarm" "cpu_credit_balance" {
+  alarm_name          = "species-tracker-cpu-credit-low"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "CPUCreditBalance"
+  namespace           = "AWS/EC2"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "20"
+  alarm_description   = "EC2 CPU credits low — burstable performance at risk of silent throttle"
+  alarm_actions       = [aws_sns_topic.alarms.arn]
+
+  dimensions = {
+    InstanceId = aws_instance.app.id
+  }
+}
+
+# Memory utilization — requires CloudWatch agent (not available from EC2 hypervisor)
+resource "aws_cloudwatch_metric_alarm" "memory_utilization" {
+  alarm_name          = "species-tracker-high-memory"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "mem_used_percent"
+  namespace           = "CWAgent"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "85"
+  alarm_description   = "EC2 memory utilization exceeds 85% — risk of OOM on t3.micro (1GB RAM)"
+  alarm_actions       = [aws_sns_topic.alarms.arn]
+
+  dimensions = {
+    InstanceId = aws_instance.app.id
+  }
+}
+
+# Disk utilization — requires CloudWatch agent
+resource "aws_cloudwatch_metric_alarm" "disk_utilization" {
+  alarm_name          = "species-tracker-high-disk"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "disk_used_percent"
+  namespace           = "CWAgent"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "80"
+  alarm_description   = "EC2 disk utilization exceeds 80% on root volume (30GB EBS)"
+  alarm_actions       = [aws_sns_topic.alarms.arn]
+
+  dimensions = {
+    InstanceId = aws_instance.app.id
+    path       = "/"
   }
 }

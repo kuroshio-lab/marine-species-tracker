@@ -25,26 +25,31 @@ class OBISAPIClient:
         geometry,
         taxonid=None,
         size=None,
-        page=0,
+        after=None,
         start_date=None,
         end_date=None,
     ):
         """
-        Fetches occurrence data from OBIS API.
-        :param geometry: WKT polygon string e.g., "POLYGON((-80 30, -80 50, -30 50, -30 30, -80 30))"
+        Fetches occurrence data from OBIS API using cursor-based pagination.
+
+        :param geometry: WKT polygon string
         :param taxonid: OBIS taxon ID (optional)
         :param size: Number of results per page (max 500)
-        :param page: Page number (for pagination)
-        :param start_date: Date string (YYYY-MM-DD) to fetch records with eventDate >= this.
-        :param end_date: Date string (YYYY-MM-DD) to fetch records with eventDate <= this.
+        :param after: Cursor for pagination — the `id` of the last record from
+            the previous page. Pass None (or omit) for the first request.
+            The OBIS API uses cursor-based pagination, NOT offset-based.
+            Passing `offset` silently breaks for large result sets.
+        :param start_date: Date string (YYYY-MM-DD), eventDate >= this
+        :param end_date: Date string (YYYY-MM-DD), eventDate <= this
         :return: Tuple (list of occurrence records, total count of records)
         """
         endpoint = f"{self.base_url}occurrence"
         params = {
             "geometry": geometry,
             "size": size or self.default_size,
-            "offset": page * (size or self.default_size),
         }
+        if after is not None:
+            params["after"] = after
         if taxonid:
             params["taxonid"] = taxonid
         if start_date:

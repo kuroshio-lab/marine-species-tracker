@@ -34,6 +34,13 @@ apt-get install -y \
     awscli
 
 # =============================================================================
+# Install CloudWatch Agent
+# =============================================================================
+wget -q https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+dpkg -i -E ./amazon-cloudwatch-agent.deb
+rm -f amazon-cloudwatch-agent.deb
+
+# =============================================================================
 # Install Docker
 # =============================================================================
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
@@ -523,11 +530,30 @@ chown ubuntu:ubuntu /var/log/species_sync_incremental.log /var/log/species_sync_
 chmod 664 /var/log/species_sync_incremental.log /var/log/species_sync_full.log
 
 # =============================================================================
-# Create CloudWatch agent configuration (optional)
+# Configure and start CloudWatch Agent (memory, disk, logs)
 # =============================================================================
 mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
 cat > /opt/aws/amazon-cloudwatch-agent/etc/cloudwatch-config.json << 'CWCONFIG'
 {
+  "agent": {
+    "metrics_collection_interval": 60,
+    "run_as_user": "root"
+  },
+  "metrics": {
+    "append_dimensions": {
+      "InstanceId": "$${aws:InstanceId}"
+    },
+    "aggregation_dimensions": [["InstanceId"], ["InstanceId", "path"]],
+    "metrics_collected": {
+      "mem": {
+        "measurement": ["mem_used_percent"]
+      },
+      "disk": {
+        "measurement": ["disk_used_percent"],
+        "resources": ["/"]
+      }
+    }
+  },
   "logs": {
     "logs_collected": {
       "files": {
@@ -543,6 +569,12 @@ cat > /opt/aws/amazon-cloudwatch-agent/etc/cloudwatch-config.json << 'CWCONFIG'
   }
 }
 CWCONFIG
+
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+    -a fetch-config \
+    -m ec2 \
+    -c file:/opt/aws/amazon-cloudwatch-agent/etc/cloudwatch-config.json \
+    -s
 
 # =============================================================================
 # Setup complete message

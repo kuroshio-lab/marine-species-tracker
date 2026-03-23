@@ -40,9 +40,7 @@ class Command(BaseCommand):
                 " For 'incremental' mode, it specifies the number of pages to"
                 " fetch."
             ),
-            default=getattr(
-                settings, "OBIS_DEFAULT_FETCH_PAGES", None
-            ),  # Changed default to None
+            default=None,
         )
         parser.add_argument(
             "--mode",
@@ -72,6 +70,17 @@ class Command(BaseCommand):
                 " incremental and --start-date specified but not this."
             ),
         )
+        parser.add_argument(
+            "--page-chunk-size",
+            type=int,
+            help=(
+                "Process pages in bursts of this size with a pause between"
+                " bursts. Helps avoid OBIS API pagination limits that cause"
+                " repeated first-page responses for deep offsets. Recommended"
+                " value: 10. If omitted, all pages are fetched in one stream."
+            ),
+            default=None,
+        )
 
     def handle(self, *args, **options):
         geometry_wkt = options["geometry"]
@@ -80,6 +89,7 @@ class Command(BaseCommand):
         mode = options["mode"]
         start_date_arg = options["start_date"]
         end_date_arg = options["end_date"]
+        page_chunk_size = options["page_chunk_size"]
 
         final_start_date = None
         final_end_date = None
@@ -111,12 +121,22 @@ class Command(BaseCommand):
                 f" from {final_start_date} to {final_end_date}"
             )
         else:  # mode == 'full'
-            self.stdout.write(
-                "Running in FULL REFRESH mode (no date filters applied)."
+            # Allow optional date bounds in full mode for year-by-year chunking
+            if start_date_arg:
+                final_start_date = start_date_arg
+            if end_date_arg:
+                final_end_date = end_date_arg
+
+            date_info = (
+                f" ({final_start_date} → {final_end_date})"
+                if final_start_date or final_end_date
+                else " (no date filter)"
             )
-        # For full mode, the max_pages from options is passed directly.
-        # If --max-pages wasn't specified, this will be None, allowing full dynamic pagination.
-        pages_to_pass_to_etl = max_pages
+            self.stdout.write(
+                f"Running in FULL REFRESH mode{date_info}."
+            )
+            # If --max-pages wasn't specified, this will be None, allowing full dynamic pagination.
+            pages_to_pass_to_etl = max_pages
 
         self.stdout.write(
             "Starting OBIS data refresh in a background thread..."
@@ -130,6 +150,7 @@ class Command(BaseCommand):
                 final_start_date,
                 final_end_date,
                 pages_to_pass_to_etl,
+                page_chunk_size,
             ),
         )
         etl_thread.start()
