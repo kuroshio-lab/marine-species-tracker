@@ -1,0 +1,46 @@
+# .github/workflows/infra.yml
+name: Infra Validation
+
+# Infra changes don't touch backend/frontend, so the PR Validation suite skips
+# them. This workflow gives infra-only PRs their own lightweight gate.
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'infra/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/infra.yml'
+
+jobs:
+  validate-terraform:
+    name: Validate Terraform
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+
+      - name: Terraform init (no backend)
+        run: terraform init -backend=false -input=false
+
+      - name: Terraform validate
+        run: terraform validate
+
+  validate-compose:
+    name: Validate Docker Compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate docker-compose.yml
+        run: docker compose -f docker-compose.yml config -q
