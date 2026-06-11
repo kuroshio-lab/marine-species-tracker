@@ -211,6 +211,8 @@ services:
     image: nginx:alpine
     container_name: species-nginx
     restart: unless-stopped
+    # Reload every 6h so freshly renewed certs are picked up without a manual restart
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
     ports:
       - "80:80"
       - "443:443"
@@ -230,10 +232,13 @@ services:
   certbot:
     image: certbot/certbot
     container_name: species-certbot
+    restart: unless-stopped
     volumes:
       - certbot-conf:/etc/letsencrypt
       - certbot-www:/var/www/certbot
-    command: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $$$$!; done;'"
+    # entrypoint (not command) — the certbot image's ENTRYPOINT is "certbot",
+    # so a command: string gets passed as args to certbot instead of run by a shell.
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 volumes:
   backend-static:
   backend-media:
