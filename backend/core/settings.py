@@ -253,7 +253,7 @@ SWAGGER_USE_COMPAT_RENDERERS = False
 #     import sentry_sdk
 #     sentry_sdk.init(dsn=os.getenv('SENTRY_DSN'), environment=ENV)
 
-# Custom settings for OBIS/WoRMS clients (used in species.tasks.obis_etl)
+# Custom settings for OBIS/WoRMS clients (used in species.tasks.ingest)
 OBIS_API_BASE_URL = os.environ.get(
     "OBIS_API_BASE_URL", "https://api.obis.org/v3/"
 )

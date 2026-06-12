@@ -2,13 +2,10 @@
 import logging
 import re
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import pytz
 from dateutil import parser
-
-if TYPE_CHECKING:
-    from ..worms_api import WoRMSAPIClient
 
 logger = logging.getLogger(__name__)
 
@@ -69,34 +66,6 @@ def normalize_obis_depth(
         depth_min = depth_max
 
     return depth_min, depth_max, bathymetry
-
-
-def get_harmonized_common_name(
-    obis_record: dict[str, object], worms_client: "WoRMSAPIClient"
-) -> str | None:
-    """Get common name from OBIS or WoRMS."""
-    obis_vernacular_name = obis_record.get("vernacularName")
-
-    if obis_vernacular_name:
-        return clean_string_to_capital_capital(obis_vernacular_name)
-    else:
-        aphia_id = obis_record.get("aphiaID")
-        if aphia_id:
-            worms_common_name = worms_client.get_common_name_by_aphia_id(
-                aphia_id
-            )
-            return clean_string_to_capital_capital(worms_common_name)
-    return None
-
-
-def get_common_name_from_worms(scientific_name: str | None) -> str | None:
-    """
-    Get common name from WoRMS for GBIF records.
-    Note: This is a simplified version. Full implementation would search by scientific name.
-    """
-    # TODO: Implement WoRMS search by scientific name
-    # For now, return None - common names are optional
-    return None
 
 
 def parse_obis_event_date(

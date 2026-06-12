@@ -1,8 +1,17 @@
 # species/management/commands/sync_gbif_by_oceans.py
-from django.core.management.base import BaseCommand
-from species.tasks.gbif_etl import sync_gbif_by_oceans
-from species.models import CuratedObservation
 import time
+
+from django.core.management.base import BaseCommand
+
+from species.models import CuratedObservation
+from species.tasks.gbif_api import GBIFAPIClient
+from species.tasks.ingest import (
+    OCEAN_POLYGONS_WKT,
+    GBIFSource,
+    OceanFanout,
+    WoRMSResolver,
+    ingest_source,
+)
 
 
 class Command(BaseCommand):
@@ -61,8 +70,12 @@ class Command(BaseCommand):
 
         start_time = time.time()
 
-        # Call the ocean sync wrapper
-        overall_stats = sync_gbif_by_oceans(year=year, limit=limit)
+        run = ingest_source(
+            GBIFSource(),
+            OceanFanout(GBIFAPIClient(), OCEAN_POLYGONS_WKT, year=year),
+            taxonomy=WoRMSResolver(),
+            page_size=limit,
+        )
 
         elapsed_time = time.time() - start_time
 
@@ -70,8 +83,8 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 "✅ GBIF Ocean Sync Complete!\n"
-                f"   Total Processed: {overall_stats['processed']:,}\n"
-                f"   Total Saved: {overall_stats['saved']:,}\n"
+                f"   Total Processed: {run.processed:,}\n"
+                f"   Total Saved: {run.saved:,}\n"
                 f"   Time Elapsed: {elapsed_time:.1f}s"
             )
         )
