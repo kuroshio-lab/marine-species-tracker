@@ -11,6 +11,8 @@ traversals share one ``GBIFSource`` — that is the split the ``if strategy ==
 
 from __future__ import annotations
 
+import time
+
 from dateutil import parser as date_parser
 from django.utils import timezone
 from shapely import wkt
@@ -124,16 +126,22 @@ class OffsetTraversal:
         taxon_key=None,
         year=None,
         ocean_label=None,
+        sleep_seconds: float = 0.5,
     ) -> None:
         self.client = client
         self.geometry_wkt = geometry_wkt
         self.taxon_key = taxon_key
         self.year = year
         self.ocean_label = ocean_label
+        self.sleep_seconds = sleep_seconds
         self._poly = wkt.loads(geometry_wkt) if geometry_wkt else None
 
     def fetch_page(self, cursor, size) -> Page:
         offset = cursor or 0
+        # Be nice to GBIF: pause between successive page fetches, but not
+        # before the first (offset 0).
+        if offset and self.sleep_seconds:
+            time.sleep(self.sleep_seconds)
         params = _gbif_params(
             self._poly,
             self.geometry_wkt,
