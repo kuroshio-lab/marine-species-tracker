@@ -1,11 +1,16 @@
 # backend/species/mangement/commands/refresh_obis_data.py
-import threading
 from datetime import date, timedelta
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
 
-from species.tasks.obis_etl import trigger_full_obis_refresh
+from species.tasks.ingest import (
+    CursorTraversal,
+    OBISSource,
+    WoRMSResolver,
+    ingest_source,
+)
+from species.tasks.obis_api import OBISAPIClient
 
 
 class Command(BaseCommand):
@@ -132,33 +137,38 @@ class Command(BaseCommand):
                 if final_start_date or final_end_date
                 else " (no date filter)"
             )
-            self.stdout.write(
-                f"Running in FULL REFRESH mode{date_info}."
-            )
+            self.stdout.write(f"Running in FULL REFRESH mode{date_info}.")
             # If --max-pages wasn't specified, this will be None, allowing full dynamic pagination.
             pages_to_pass_to_etl = max_pages
 
-        self.stdout.write(
-            "Starting OBIS data refresh in a background thread..."
-        )
+        self.stdout.write("Starting OBIS data refresh...")
 
-        etl_thread = threading.Thread(
-            target=trigger_full_obis_refresh,
-            args=(
-                geometry_wkt,
-                taxonid,
-                final_start_date,
-                final_end_date,
-                pages_to_pass_to_etl,
-                page_chunk_size,
+        client = OBISAPIClient(
+            base_url=getattr(
+                settings, "OBIS_API_BASE_URL", "https://api.obis.org/v3/"
             ),
+            default_size=getattr(settings, "OBIS_API_DEFAULT_SIZE", 500),
         )
-        etl_thread.start()
-        etl_thread.join()
+        traversal = CursorTraversal(
+            client,
+            geometry=geometry_wkt,
+            taxonid=taxonid,
+            start_date=final_start_date,
+            end_date=final_end_date,
+            page_chunk_size=page_chunk_size,
+        )
+        run = ingest_source(
+            OBISSource(),
+            traversal,
+            taxonomy=WoRMSResolver(),
+            page_size=client.default_size,
+            max_pages=pages_to_pass_to_etl,
+        )
 
         self.stdout.write(
-            self.style.SUCCESS("OBIS refresh command completed.")
-        )
-        self.stdout.write(
-            self.style.WARNING("All ETL logs should be visible above.")
+            self.style.SUCCESS(
+                "OBIS refresh complete: "
+                f"{run.saved} saved, {run.duplicates} duplicates, "
+                f"{run.rejected} rejected across {run.pages} pages."
+            )
         )
