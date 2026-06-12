@@ -33,6 +33,9 @@ class OBISSource:
 
     name = "OBIS"
 
+    def identify(self, raw: dict) -> str | None:
+        return raw.get("occurrenceID") or f"OBIS:{raw.get('id')}"
+
     def normalize(
         self,
         raw: dict,

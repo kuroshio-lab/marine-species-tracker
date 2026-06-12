@@ -58,6 +58,9 @@ class GBIFSource:
 
     name = "GBIF"
 
+    def identify(self, raw: dict) -> str | None:
+        return raw.get("occurrenceID") or f"GBIF:{raw.get('key')}"
+
     def normalize(
         self,
         raw: dict,

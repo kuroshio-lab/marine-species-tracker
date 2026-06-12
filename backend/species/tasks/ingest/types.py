@@ -133,6 +133,17 @@ class Source(Protocol):
 
     name: str
 
+    def identify(self, raw: dict) -> str | None:
+        """The occurrence id this raw record will carry, before normalizing.
+
+        Lets the inner seam dedup against ``seen`` without paying for
+        normalization first — GBIF resolves taxonomy (a WoRMS call) inside
+        ``normalize``, so an already-ingested record must be caught here, not
+        after. Must agree with the ``occurrence_id`` ``normalize`` assigns.
+        ``None`` when the raw record carries no stable id to dedup on; the
+        record then falls through to ``normalize``.
+        """
+
     def normalize(
         self,
         raw: dict,

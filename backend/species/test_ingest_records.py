@@ -24,6 +24,9 @@ class _DictSource:
 
     name = "OBIS"
 
+    def identify(self, raw):
+        return raw.get("occurrence_id")
+
     def normalize(self, raw, taxonomy, context):
         if "reject" in raw:
             return Rejection(raw["reject"])
@@ -71,6 +74,31 @@ class IngestRecordsTests(TestCase):
         result = _ingest([{"reject": "no_date"}, {"occurrence_id": "B"}])
         self.assertEqual(result.rejected, 1)
         self.assertEqual(result.saved, 1)
+
+    def test_seen_record_is_duplicate_without_normalizing(self):
+        # An already-seen id counts as a duplicate before normalization, so it
+        # never triggers taxonomy resolution and is never miscounted as a
+        # rejection when resolution would fail. (Without this, deep-offset
+        # re-seen pages read as rejections and never trip should_stop.)
+        class _CountingSource(_DictSource):
+            def __init__(self):
+                self.normalized = []
+
+            def normalize(self, raw, taxonomy, context):
+                self.normalized.append(raw.get("occurrence_id"))
+                return Rejection("unresolved_name")
+
+        source = _CountingSource()
+        result = ingest_records(
+            source,
+            [{"occurrence_id": "A"}],
+            taxonomy=DictResolver(),
+            seen={"A"},
+            context=PageContext(),
+        )
+        self.assertEqual(result.duplicates, 1)
+        self.assertEqual(result.rejected, 0)
+        self.assertEqual(source.normalized, [])
 
     def test_failed_persist_neither_aborts_page_nor_poisons_seen(self):
         # A row exists but is not in `seen`, so dedup misses it and the write

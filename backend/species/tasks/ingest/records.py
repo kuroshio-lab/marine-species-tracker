@@ -40,10 +40,21 @@ def ingest_records(
     ``seen`` is the run-level set of occurrence ids already written. It gains an
     id only after that record's savepoint commits, so a rolled-back write can
     never poison dedup for a later identical record in the same run.
+
+    Dedup runs *before* normalization: an already-seen id is counted as a
+    duplicate without resolving taxonomy (GBIF's per-record WoRMS call), so a
+    deep-offset page of re-seen records reads as duplicates — what
+    ``OffsetTraversal.should_stop`` keys on — rather than as rejections when
+    resolution happens to fail. ``identify`` returning ``None`` falls through to
+    the post-normalize check.
     """
     result = IngestResult()
     for raw in records:
         result.processed += 1
+        pre_id = source.identify(raw)
+        if pre_id is not None and pre_id in seen:
+            result.duplicates += 1
+            continue
         outcome = source.normalize(raw, taxonomy, context)
         if isinstance(outcome, Rejection):
             result.rejected += 1

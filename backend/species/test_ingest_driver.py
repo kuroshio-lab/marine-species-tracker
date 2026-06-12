@@ -19,6 +19,9 @@ from species.tasks.ingest import (
 class _DictSource:
     name = "OBIS"
 
+    def identify(self, raw):
+        return raw["occurrence_id"]
+
     def normalize(self, raw, taxonomy, context):
         return CanonicalOccurrence(
             occurrence_id=raw["occurrence_id"],
