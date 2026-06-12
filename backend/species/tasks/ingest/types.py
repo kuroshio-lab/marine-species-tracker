@@ -91,7 +91,9 @@ class IngestRun:
 
     The driver reads this back between pages to decide whether to keep going —
     the run budget consumes ``saved``; deep-offset degradation consumes
-    ``last`` and ``last_requested``. It is a read contract, not write-only.
+    ``last``, ``last_requested``, and ``page_size`` (the unshrunk page size, so
+    degradation can tell a full offset page from one shrunk to fit the budget).
+    It is a read contract, not write-only.
     """
 
     processed: int = 0
@@ -101,6 +103,7 @@ class IngestRun:
     pages: int = 0
     last: IngestResult | None = None
     last_requested: int = 0
+    page_size: int = 0
 
     def add(self, result: IngestResult, *, requested: int) -> None:
         self.processed += result.processed

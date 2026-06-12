@@ -115,6 +115,29 @@ class OffsetTraversalTests(SimpleTestCase):
         )
         self.assertFalse(traversal.should_stop(run))
 
+    def test_budget_shrunk_page_does_not_stop(self):
+        # --max-records 1 shrinks the page to a single record; one duplicate
+        # must NOT trip the deep-offset stop — it is the budget tail, not GBIF
+        # replaying ingested records. (Regression: 1 > 0.8 * 1 stopped at
+        # offset 0.)
+        traversal = OffsetTraversal(_FakeGBIFClient({}))
+        run = IngestRun(page_size=300)
+        run.add(
+            IngestResult(processed=1, saved=0, duplicates=1), requested=1
+        )
+        self.assertFalse(traversal.should_stop(run))
+
+    def test_full_page_of_duplicates_still_stops(self):
+        # A full offset page (last_requested == page_size) that saved nothing
+        # and is mostly duplicates is the genuine degradation signal.
+        traversal = OffsetTraversal(_FakeGBIFClient({}))
+        run = IngestRun(page_size=300)
+        run.add(
+            IngestResult(processed=300, saved=0, duplicates=300),
+            requested=300,
+        )
+        self.assertTrue(traversal.should_stop(run))
+
 
 class OceanFanoutTests(SimpleTestCase):
     def test_walks_every_ocean_in_order_and_tags_label(self):

@@ -162,6 +162,14 @@ class OffsetTraversal:
         last = run.last
         if last is None:
             return False
+        # Deep-offset degradation is only diagnosable from a full offset page.
+        # When max_records shrinks the page to fit the remaining budget
+        # (last_requested < page_size), an all-duplicate page is the budget
+        # tail, not GBIF replaying ingested records — e.g. --max-records 1
+        # requests a single record, and one duplicate must not stop paging at
+        # offset 0. Gate on a full page so the ratio denominator is meaningful.
+        if run.page_size and run.last_requested < run.page_size:
+            return False
         return (
             last.saved == 0
             and last.duplicates

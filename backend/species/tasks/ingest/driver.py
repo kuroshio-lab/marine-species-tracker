@@ -36,7 +36,7 @@ def ingest_source(
     saved-record budget; ``max_pages`` only caps the page count and never
     shrinks a page.
     """
-    run = IngestRun()
+    run = IngestRun(page_size=page_size)
     cursor: object | None = None
     seen = set(
         CuratedObservation.objects.values_list("occurrence_id", flat=True)
